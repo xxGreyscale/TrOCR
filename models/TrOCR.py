@@ -132,7 +132,6 @@ class TrOCR:
         """
         best_cer = float('inf')  # start with a high CER
         learning_rate = self.config.learning_rate
-        best_learning_rate = 0
         best_train_loss = float('inf')  # start with a high loss
 
         optimizer = torch.optim.AdamW(self.model.parameters(), lr=learning_rate)
@@ -170,17 +169,15 @@ class TrOCR:
                     valid_cer += cer
 
             valid_cer /= len(eval_dataloader)
-            logger.info("Validation CER:", valid_cer)
-            logger.info("learning rate:", learning_rate)
+            logger.info(f"Validation CER: {valid_cer}")
+            logger.info(f"learning rate: {learning_rate}")
 
             # save the best model
             if valid_cer < best_cer:
                 logger.info("New best model found!")
                 best_cer = valid_cer
-                best_learning_rate = learning_rate
                 self.model.save_pretrained(f"{self.save_dir}/{self.config.model_version}/vision_model/")
                 self.processor.save_pretrained(f"{self.save_dir}/{self.config.model_version}/processor/")
 
         logger.info('Finished Training')
         logger.info(f"Best CER: {best_cer}")
-        logger.info(f"Best learning rate: {best_learning_rate}")

@@ -1,5 +1,6 @@
 # ignore ALL .log files
 *.log
+__pycache__
 
 # Ignore ALL tmp files
 tmp/
@@ -16,3 +17,6 @@ transcribed_data/*
 
 # ignore wandb files
 wandb/
+
+#ignore all custom models
+custom_models/*

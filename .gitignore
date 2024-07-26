@@ -1,0 +1,18 @@
+# ignore ALL .log files
+*.log
+
+# Ignore ALL tmp files
+tmp/
+
+# Ignore ALL __depricated files
+__depricated/*
+datasets/*
+
+# Ignore ALL files in transcribed_data
+transcribed_data/*
+
+# ignore all files .egg-info
+*.egg-info
+
+# ignore wandb files
+wandb/

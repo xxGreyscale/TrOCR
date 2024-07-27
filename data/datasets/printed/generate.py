@@ -152,7 +152,7 @@ class GenerateSyntheticPrintedDataset:
             text_height = font_size
             img = Image.new("RGB", (text_width, text_height), "white")
             # create image
-            padding = tuple(random.randint(5, 25) for _ in range(4))
+            padding = tuple(random.randint(5, 20) for _ in range(4))
             img = ImageOps.expand(img, padding, fill="white")
             draw = ImageDraw.Draw(img)
             # create one line sentence

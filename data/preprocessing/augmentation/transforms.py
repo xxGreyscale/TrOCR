@@ -11,7 +11,7 @@ class Augmentations:
 
         def __call__(self, tensor):
             noise = torch.randn_like(tensor[0]) * np.random.uniform(self.min_noise_factor, self.max_noise_factor)
-            return torch.clamp(tensor + noise.unsqueeze(0), 0, 0.3)
+            return torch.clamp(tensor + noise.unsqueeze(0), 0, 1)
 
     class ElasticGrid(object):
         def __init__(self, alpha=1, sigma=0.5):

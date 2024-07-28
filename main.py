@@ -21,6 +21,8 @@ def main():
     parser = argparse.ArgumentParser(description='Process some integers.')
     parser.add_argument('--generate_dataset', action=argparse.BooleanOptionalAction,
                         help='Generate dataset for training the model')
+    parser.add_argument('--augment_data', action=argparse.BooleanOptionalAction,
+                        help='Generate augmented dataset for training the model')
     parser.add_argument('--htr', action=argparse.BooleanOptionalAction,
                         help='Generate handwritten dataset for training HTR model')
     parser.add_argument('--printed', action=argparse.BooleanOptionalAction,
@@ -44,13 +46,13 @@ def main():
         if args.htr:
             try:
                 generator = GenerateDemoktatiLabourerDataset()
-                generator.generate_dataset(args.files_path, args.save_dir)
+                generator.generate_dataset(args.files_path, args.save_dir, augment_data=args.augment_data)
             except Exception as e:
                 print(f"Error generating dataset: {e}")
         elif args.printed:
             pages = ["Youtube", "Uppsala universitet", "Svenska", "Hjärtdjur", "Storängen"]
             generator = GenerateSyntheticPrintedDataset(pages=pages, target_dir=args.save_dir)
-            generator.generate_dataset(args.num_images)
+            generator.generate_dataset(args.num_images, augment_data=args.augment_data)
         else:
             print("Invalid dataset type. Please specify the dataset type")
 
@@ -106,4 +108,7 @@ def main():
         except Exception as e:
             print(f"Error training model: {e}")
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+
+if __name__ == '__main__':
+    main()
+

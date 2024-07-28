@@ -16,8 +16,11 @@ class DataPreparation:
             _batch_size,
             _padding_token,
             custom_transforms=None,
-            save_dir=None):
+            save_dir=None,
+            augment_data=False
+    ):
         self.image_width = _image_width
+        self.augment_data = augment_data
         self.image_height = _image_height
         self.save_dir = save_dir
         self.batch_size = _batch_size
@@ -162,7 +165,8 @@ class DataPreparation:
         # augment data
         image = self.distortion_free_resize(image, _img_size)
         image = tf.keras.preprocessing.image.array_to_img(image)
-        image = self.custom_transforms.data_transformer(image)
+        if self.augment_data:
+            image = self.custom_transforms.data_transformer(image)
         return image
 
     def load_and_process_image(self, _image_name, image_path, boxes, _sentences=False):

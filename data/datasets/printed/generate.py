@@ -141,7 +141,7 @@ class GenerateSyntheticPrintedDataset:
         return paired_fonts
 
     # Create a function that generates an image with a random font and a random swedish sentence
-    def generate_image(self, sentence, img_name, font):
+    def generate_image(self, sentence, img_name, font, augment_data=False):
         font_name, font_path, font_size = font
         try:
             img = Image.new("RGB", (1, 1), "white")
@@ -159,7 +159,8 @@ class GenerateSyntheticPrintedDataset:
             # place image in the center
             draw.text((padding[0], padding[1]), sentence,
                       font=font, fill=tuple([np.random.randint(0, 100)] * 3), )
-            img = self.custom_transforms.data_transformer(img)
+            if augment_data:
+                img = self.custom_transforms.data_transformer(img)
             # save image
             # Check if the directory exists
             if not os.path.exists(f"{self.target_dir}/images"):
@@ -169,7 +170,7 @@ class GenerateSyntheticPrintedDataset:
         except Exception as e:
             return None, None
 
-    def generate_dataset(self, num_images):
+    def generate_dataset(self, num_images, augment_data=False):
         try:
             failed = 0
             self.num_images = num_images
@@ -187,7 +188,7 @@ class GenerateSyntheticPrintedDataset:
                     writer.writerow(["image_path", "label"])
                 for i, (sentence, img_name, font) in tqdm(enumerate(paired_fonts),
                                                           total=self.num_images, desc="Generating dataset"):
-                    font_name, sentence = self.generate_image(sentence, img_name, font)
+                    font_name, sentence = self.generate_image(sentence, img_name, font, augment_data)
                     if font_name is None or sentence is None:
                         failed += 1
                         continue

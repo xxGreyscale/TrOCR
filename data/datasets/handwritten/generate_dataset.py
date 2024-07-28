@@ -90,7 +90,7 @@ class GenerateDemoktatiLabourerDataset:
         print(f"Successful annotated: {len(_annotations)} images")
         return _annotations
 
-    def generate_dataset(self, files_path, save_dir):
+    def generate_dataset(self, files_path, save_dir, augment_data=False):
         # Get xml files and images
         xml_files = []
         images = []
@@ -107,7 +107,8 @@ class GenerateDemoktatiLabourerDataset:
             BATCH_SIZE,
             PADDING_TOKEN,
             self.custom_transforms,
-            save_dir=save_dir
+            save_dir=save_dir,
+            augment_data=augment_data
         )
         # Prepare the dataset
         annotations = self.read_all_annotations(xml_files, images)

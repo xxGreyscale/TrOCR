@@ -107,6 +107,34 @@ class TrOCR:
         self.model = model
         self.processor = processor
 
+    def build_model_with_pretrained(self, processor_path, vision_encoder_decoder_model_path, use_fast=False):
+        """
+        Build the model with a pre-trained model
+        Technically, this is used for fine-tuning. And the model path is the same with the processor path
+        :param vision_encoder_decoder_model_path:
+        :param processor_path:
+        :param use_fast:
+        :return: nothing
+        """
+        processor = TrOCRProcessor.from_pretrained(processor_path, use_fast=use_fast)
+        model = VisionEncoderDecoderModel.from_pretrained(vision_encoder_decoder_model_path)
+        model.to(self.device)
+        # set special tokens used for creating the decoder_input_ids from the labels
+        model.config.decoder_start_token_id = processor.tokenizer.cls_token_id
+        model.config.pad_token_id = processor.tokenizer.pad_token_id
+        # make sure vocab size is set correctly
+        model.config.vocab_size = model.config.decoder.vocab_size
+
+        # set beam search parameters
+        model.config.eos_token_id = processor.tokenizer.sep_token_id
+        model.config.max_length = self.config.max_target_length
+        model.config.early_stopping = True
+        model.config.no_repeat_ngram_size = 3
+        model.config.length_penalty = 2.0
+        model.config.num_beams = 4
+        self.model = model
+        self.processor = processor
+
     def set_data_loader(self, train_dataset, eval_dataset):
         """
         Set the data loader for training and evaluation
@@ -125,12 +153,36 @@ class TrOCR:
         """
         print(self.model)
 
-    def train(self, train_dataloader, eval_dataloader):
+    def evaluate(self, model, eval_dataloader):
+        """
+        Evaluate the model
+        :return: None
+        """
+        # evaluate"
+        model.to(self.device)
+        model.eval()
+        valid_cer = 0.0
+        with torch.no_grad():
+            for batch in tqdm(eval_dataloader):
+                # run batch generation
+                outputs = self.model.generate(batch["pixel_values"].to(self.device))
+                # compute metrics
+                cer = self.compute_cer(pred_ids=outputs, label_ids=batch["labels"])
+                valid_cer += cer
+
+        valid_cer /= len(eval_dataloader)
+        logger.info(f"Validation CER: {valid_cer}")
+        logger.info(f"learning rate: {self.config.learning_rate}")
+        return valid_cer
+
+    def train(self, train_dataloader, eval_dataloader, eval_every=1):
         """
         Train the model with the specified configuration
+        eval_every: evaluate the model every n epochs
         :return: None
         """
         best_cer = float('inf')  # start with a high CER
+        valid_cer = 0.0
         learning_rate = self.config.learning_rate
         best_train_loss = float('inf')  # start with a high loss
 
@@ -158,23 +210,12 @@ class TrOCR:
             logger.info(f"Loss after epoch {epoch}: {train_loss / len(train_dataloader)}")
 
             # evaluate
-            self.model.eval()
-            valid_cer = 0.0
-            with torch.no_grad():
-                for batch in tqdm(eval_dataloader):
-                    # run batch generation
-                    outputs = self.model.generate(batch["pixel_values"].to(self.device))
-                    # compute metrics
-                    cer = self.compute_cer(pred_ids=outputs, label_ids=batch["labels"])
-                    valid_cer += cer
-
-            valid_cer /= len(eval_dataloader)
-            logger.info(f"Validation CER: {valid_cer}")
-            logger.info(f"learning rate: {learning_rate}")
+            if epoch % eval_every == 0:
+                valid_cer = self.evaluate(self.model, eval_dataloader)
 
             # save the best model
             if valid_cer < best_cer:
-                logger.info("New best model found!")
+                logger.info("Saving the best model...")
                 best_cer = valid_cer
                 self.model.save_pretrained(f"{self.save_dir}/{self.config.model_version}/vision_model/")
                 self.processor.save_pretrained(f"{self.save_dir}/{self.config.model_version}/processor/")

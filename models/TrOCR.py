@@ -210,7 +210,7 @@ class TrOCR:
             logger.info(f"Loss after epoch {epoch}: {train_loss / len(train_dataloader)}")
 
             # evaluate
-            if epoch % eval_every == 0:
+            if (epoch + 1) % eval_every == 0:
                 valid_cer = self.evaluate(self.model, eval_dataloader)
 
             # save the best model

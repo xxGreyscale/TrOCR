@@ -38,6 +38,7 @@ def main():
     parser.add_argument('--custom', action=argparse.BooleanOptionalAction, help='Model type')
     parser.add_argument('--files_path', nargs="+", help='Path to XML and images files')
     parser.add_argument('--save_dir', type=str, help='Directory to save the dataset')
+    parser.add_argument('--lang', type=str, help='Language to use')
     parser.add_argument('--num_images', type=int, help='Number of images to generate')
     parser.add_argument('--train', action=argparse.BooleanOptionalAction, help='Train the model')
     parser.add_argument('--eval_every', type=int, help='Evaluate the model every n epochs')
@@ -62,8 +63,9 @@ def main():
             except Exception as e:
                 logger.info(f"Error generating dataset: {e}")
         elif args.printed:
-            pages = ["Youtube", "Uppsala universitet", "Svenska", "Hjärtdjur", "Storängen"]
-            generator = GenerateSyntheticPrintedDataset(pages=pages, target_dir=args.save_dir)
+            pages = ["Youtube", "Chelsea FC", "Uppsala universitet", "IK Sirius FK",
+                     "Google", "Svenska", "Hjärtdjur", "Storängen"]
+            generator = GenerateSyntheticPrintedDataset(pages=pages, lang="sv", target_dir=args.save_dir)
             generator.generate_dataset(args.num_images, augment_data=args.augment_data)
         else:
             logger.info("Invalid dataset type. Please specify the dataset type")

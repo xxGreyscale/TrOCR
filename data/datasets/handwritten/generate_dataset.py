@@ -23,9 +23,9 @@ class GenerateDemoktatiLabourerDataset:
     # folder. Only take xml files in the alto folder]
     def __init__(self):
         self.custom_transforms = CustomTransformation(
-            min_noise_factor=0.05, max_noise_factor=0.15, sigma=0.5,
-            random_noise_p=0.4, random_rotation_p=0.3,
-            invert_p=0.3, elastic_grid_p=0.6, resize_p=0.3
+            min_noise_factor=0.05, max_noise_factor=0.15, sigma=5.0,
+            random_noise_p=0.2, random_rotation_p=0.3,
+            invert_p=0.2, elastic_grid_p=0.4, resize_p=0.3
         )
 
     @staticmethod

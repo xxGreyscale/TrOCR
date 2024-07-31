@@ -10,36 +10,52 @@ from tqdm import tqdm
 
 from data.preprocessing.augmentation.transforms import CustomTransformation
 from PIL import ImageOps
-import requests
-import json
 import time
 from requests.exceptions import ConnectTimeout
+import logging
+
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # CONSTANTS
 API_KEY = "AIzaSyBb9yWCtp_L2sKJ-_qBEDeEZdGrZ4odvgA"
 
 
 class GenerateSyntheticPrintedDataset:
-    def __init__(self, pages=None, target_dir=None):
+    def __init__(self, pages=None, lang="sv", target_dir=None):
+        """
+        Generate a synthetic printed dataset
+        :param pages: Number of pages to get sentences from
+        :param lang: Language to use, Default is Swedish
+        :param target_dir: Directory to save the dataset
+        """
         self.num_images = 0
         self.num_of_sentences = 0
         self.wikipedia = wikipedia
         self.pages = pages
         self.target_dir = target_dir
+        self.lang = lang
         self.custom_transforms = CustomTransformation(
-            min_noise_factor=0.1, max_noise_factor=0.2, sigma=0.5,
+            min_noise_factor=0.1, max_noise_factor=0.2, sigma=5.0,
             random_noise_p=0.7, random_rotation_p=0.5,
-            invert_p=0.5, elastic_grid_p=0.8, resize_p=0.5
+            invert_p=0.2, elastic_grid_p=0.8, resize_p=0.5
         )
 
     def read_wikipedia_page(self, page_name):
-        self.wikipedia.set_lang("sv")
+        """
+        Read a Wikipedia page
+        :param page_name:
+        :return:
+        """
+        self.wikipedia.set_lang(self.lang)
         search = self.wikipedia.search(page_name)
         page = self.wikipedia.page(auto_suggest=False, title=search[0])
         links = page.links
         return page.content, links
 
-    def get_swedish_sentences(self, page_name):
+    def get_sentences(self, page_name):
         content, links = self.read_wikipedia_page(page_name)
         for link in tqdm(links, desc=f"Reading Wikipedia pages links from {page_name}"):
             try:
@@ -48,85 +64,97 @@ class GenerateSyntheticPrintedDataset:
             except ConnectTimeout:
                 time.sleep(5)
             except PageError:
-                print(f"Failed to get content from {link} because it's not a Wikipedia page.")
+                logger.info(f"Failed to get content from {link} because it's not a Wikipedia page.")
             except Exception as e:
-                print(f"Failed to get content from {link} with error: {e}")
+                logger.error(f"Failed to get content from {link} with error: {e}")
         sentences = re.split(r'(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|\?)\s', content)
         return sentences
 
-    def get_swedish_sentences_with_retry(self, page_name, retries=5, delay=5):
+    def get_sentences_with_retry(self, page_name, retries=5, delay=5):
         for _ in range(retries):
             try:
-                return self.get_swedish_sentences(page_name)
+                return self.get_sentences(page_name)
             except ConnectTimeout:
                 time.sleep(delay)
         raise Exception(f"Failed to get sentences from {page_name} after {retries} attempts")
 
-    def generate_swedish_sentence_from_pages(self, pages):
+    def generate_sentence_from_pages(self, pages):
         # pages to search from
         self.pages = pages
         sentences = []
         for i, page_name in enumerate(pages):
             try:
-                # filter text with more than 110 characters
                 if len(sentences) >= self.num_images:
                     self.num_of_sentences = len(sentences)
                     break
-                print(f"Getting sentences from {page_name}: {i + 1}/{len(pages)}")
-                _sentences = self.get_swedish_sentences_with_retry(page_name)
+                logger.info(f"Getting sentences from {page_name}: {i + 1}/{len(pages)}")
+                _sentences = self.get_sentences_with_retry(page_name)
+                # filter text with more than 110 characters
                 _sentences = [sentence for sentence in _sentences if len(sentence) < 110]
                 sentences += _sentences
             except Exception as e:
-                print(f"Failed to get sentences from {page_name} with error: {e}")
-        print(f"Total sentences: {len(sentences)}")
+                logger.error(f"Failed to get sentences from {page_name} with error: {e}")
+        logger.info(f"Total sentences: {len(sentences)}")
         return sentences
 
     @staticmethod
-    def download_google_fonts():
-        # get fonts from google fonts api
-        try:
-            url = f"https://www.googleapis.com/webfonts/v1/webfonts?key={API_KEY}"
-            response = requests.get(url, timeout=10)
-            if response.status_code == 200:
-                # fetch every font and save it in the fonts directory
-                fonts = json.loads(response.text)
-                if not os.path.exists("datasets/fonts"):
-                    os.makedirs("datasets/fonts")
-                for font in tqdm(fonts["items"], desc="Downloading fonts"):
-                    font_name = font["family"]
-                    font_weight = random.choice(font["variants"])
-                    font_url = font["files"][font_weight]
-                    response = requests.get(font_url, timeout=10)
-                    if response.status_code == 200:
-                        with open(f"datasets/fonts/{font_name}_{font_weight}.ttf", "wb") as file:
-                            file.write(response.content)
-                    else:
-                        raise Exception(f"Failed to download font {font_name}")
-            else:
-                raise Exception(f"Failed to download fonts: {response.text}")
-        except Exception as e:
-            time.sleep(1)
-            raise Exception(f"Failed to download fonts: {e}")
-
-    def get_google_fonts(self):
+    def get_google_fonts():
+        """
+        Get Google fonts
+        :return: Array list of (font_name, font_path)
+        """
+        missed_fonts = 0
+        fonts = []
         if not os.path.exists("datasets/fonts"):
-            print("Downloading fonts from Google Fonts API...")
-            self.download_google_fonts()
-        # Get locally stored fonts
-        # get all fonts available in the file and return font name to path pair
-        fonts = [(font.split(".")[0], os.path.join("datasets/fonts", font))
-                 for font in os.listdir("datasets/fonts")]
+            raise IsADirectoryError("Fonts directory not found")
+
+        # Get fonts info .csv from the fonts directory
+        # open font-info.csv
+        if not os.path.exists("datasets/fonts/font-info.csv"):
+            raise FileNotFoundError("Font info file not found")
+
+        # open the file
+        with open("datasets/fonts/font-info.csv", "r") as file:
+            reader = csv.reader(file)
+            fonts_meta = [row for row in reader]
+
+        # filter handwritten, monospace, medieval, serif and grotesque fonts
+        fonts_filter = ["handwritten", "monospace", "medieval", "serif", "grotesque"]
+        filtered_fonts = [font_meta for font_meta in fonts_meta if font_meta[1] not in fonts_filter]
+
+        # the fonts name matches the files in directory datasets/fonts
+        for font in filtered_fonts[1:]:
+            if not os.path.exists(f"datasets/fonts/{font[0].replace(' ','').lower().strip()}"):
+                # logger.warn(f"Skipping since, font file for {font[0]} is not found")
+                missed_fonts += 1
+                continue
+
+            # get file in the directory with .tff extension
+            font_files = [file for file in os.listdir(f"datasets/fonts/{font[0].replace(' ','').lower().strip()}")
+                          if file.endswith("Regular.ttf")]
+            if len(font_files) == 0:
+                missed_fonts += 1
+                # logger.warn(f"Font file for {font[0]} regular not found")
+                continue
+            font = (font[0], f"datasets/fonts/{font[0].replace(' ','').lower().strip()}/{font_files[0]}")
+            fonts.append(font)
+        logger.info(f"Missed fonts: {missed_fonts} out of {len(filtered_fonts)}")
         return fonts
 
     def get_random_fonts(self):
-        fonts = self.get_google_fonts()
-        # return random fonts
-        random_fonts = random.choices(fonts, k=5)
-        return random_fonts
+        """
+        Get random fonts
+        :return:
+        """
+        return random.choices(self.get_google_fonts(), k=10)
 
     def pair_fonts_with_sentences(self):
+        """
+        Pair fonts with sentences
+        :return:
+        """
         # pair at least 2 fonts with a sentence
-        sentences = self.generate_swedish_sentence_from_pages(self.pages)
+        sentences = self.generate_sentence_from_pages(self.pages)
         # shuffle the sentences
         random.shuffle(sentences)
         fonts = self.get_random_fonts()
@@ -142,14 +170,25 @@ class GenerateSyntheticPrintedDataset:
 
     # Create a function that generates an image with a random font and a random swedish sentence
     def generate_image(self, sentence, img_name, font, augment_data=False):
+        """
+        Generate an image with a random font and a random Swedish sentence
+        :param sentence:
+        :param img_name:
+        :param font:
+        :param augment_data:
+        :return:
+        """
         font_name, font_path, font_size = font
         try:
             img = Image.new("RGB", (1, 1), "white")
             draw = ImageDraw.Draw(img)
             font = ImageFont.truetype(font_path, size=font_size)
-            # get text size
-            text_width = int(draw.textlength(sentence))
-            text_height = font_size
+
+            # Get text bounding box
+            bbox = draw.textbbox((0, 0), sentence, font=font)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+
             img = Image.new("RGB", (text_width, text_height), "white")
             # create image
             padding = tuple(random.randint(5, 20) for _ in range(4))
@@ -168,9 +207,19 @@ class GenerateSyntheticPrintedDataset:
             img.save(os.path.join(self.target_dir, "images", f"{img_name}.jpeg"))
             return font_name, sentence
         except Exception as e:
+            logger.error(f"Failed to generate image: {e}")
             return None, None
 
     def generate_dataset(self, num_images, augment_data=False):
+        """
+        Generate the synthetic printed dataset
+        :param num_images:
+        :param augment_data:
+        :return:
+        """
+        """
+        @todo: Could be a recursive function since number of images is not always guaranteed to a specified number
+        """
         try:
             failed = 0
             self.num_images = num_images
@@ -196,8 +245,8 @@ class GenerateSyntheticPrintedDataset:
                     if i == self.num_images:
                         break
             if failed > 0:
-                print(f"Failed to generate {failed} images")
-            print(f"Dataset generation completed!")
+                logger.info(f"Failed to generate {failed} images")
+            logger.info(f"Dataset generation completed!")
             return None
         except Exception as e:
             print(f"Failed to generate dataset: {e}")

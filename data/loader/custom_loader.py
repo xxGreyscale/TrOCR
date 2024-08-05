@@ -9,34 +9,37 @@ from data.loader.common.loader import LoaderInterface
 
 
 class CustomLoader(LoaderInterface):
-    def __init__(self, path=None):
-        super().__init__(path)
-        self.path = path
-        # We expect a dataframe
+    def __init__(self, paths=None):
+        super().__init__(paths)
+        self.paths = paths if paths is not None else []
         self.dataframe: any = None
         self.maximum_char_length: int = 0
 
     def generate_dataframe(self):
         """
-        Generate a dataframe from the CSV file,
+        Generate a dataframe from the CSV files,
         This will generate a dataframe with the following columns:
         file_name: The path to the image file
         text: The text in the image
         """
+        combined_dataframe = pd.DataFrame()
         try:
-            if os.path.isfile(self.path):
-                print('File exists')
-                with open(self.path, 'rb') as f:
-                    result = chardet.detect(f.read())
-                    _encoding = result['encoding']
-                    print(f'Encoding: {_encoding}')
-                self.dataframe = pd.read_csv(self.path, encoding="utf-8").dropna()
-                self.dataframe.rename(columns={'image_path': 'file_name', 'label': 'text'}, inplace=True)
-                self.maximum_char_length = self.calculate_max_character_length()
-            else:
-                print("Make sure the data is already prepared")
-        except FileNotFoundError:
-            print(f'File does not exist at: {self.path}')
+            for path in self.paths:
+                if os.path.isfile(path):
+                    print(f'File exists: {path}')
+                    with open(path, 'rb') as f:
+                        result = chardet.detect(f.read())
+                        _encoding = result['encoding']
+                        print(f'Encoding: {_encoding}')
+                    temp_dataframe = pd.read_csv(path, encoding="utf-8").dropna()
+                    temp_dataframe.rename(columns={'image_path': 'file_name', 'label': 'text'}, inplace=True)
+                    combined_dataframe = pd.concat([combined_dataframe, temp_dataframe], ignore_index=True)
+                else:
+                    print(f"File does not exist: {path}")
+            self.dataframe = combined_dataframe
+            self.maximum_char_length = self.calculate_max_character_length()
+        except FileNotFoundError as e:
+            print(f'Error: {e}')
 
     def calculate_max_character_length(self):
         max_len = 0
@@ -52,6 +55,13 @@ class CustomLoader(LoaderInterface):
         :return: DataFrame
         """
         return self.dataframe
+
+    def get_half_dataframe(self):
+        """
+        Get the first half of the generated dataframe from dataset
+        :return: DataFrame
+        """
+        return self.dataframe.iloc[:len(self.dataframe) // 2]
 
     def get_maximum_char_length(self):
         return self.maximum_char_length

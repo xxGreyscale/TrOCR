@@ -42,7 +42,7 @@ def main():
     parser.add_argument('--num_images', type=int, help='Number of images to generate')
     parser.add_argument('--train', action=argparse.BooleanOptionalAction, help='Train the model')
     parser.add_argument('--eval_every', type=int, help='Evaluate the model every n epochs')
-    parser.add_argument('--dataset_path', type=str, help='Path to the dataset')
+    parser.add_argument('--dataset_paths', nargs="+", help='Path to the dataset')
     parser.add_argument('--lr', type=float, help='Learning rate')
     parser.add_argument('--epochs', type=int, help='Number of epochs')
     parser.add_argument('--batch_size', type=int, help='Batch size')
@@ -53,6 +53,8 @@ def main():
     parser.add_argument('--model_version', type=str, help='Model version')
     parser.add_argument('--processor', type=str, help='Processor path for the model')
     parser.add_argument('--vision_encoder_decoder_model', type=str, help='Vision Encoder Decoder model')
+    parser.add_argument('--with_half_data', action=argparse.BooleanOptionalAction,
+                        help='Get the first half of the dataset')
 
     args = parser.parse_args()
     if args.generate_dataset:
@@ -63,15 +65,17 @@ def main():
             except Exception as e:
                 logger.info(f"Error generating dataset: {e}")
         elif args.printed:
-            pages = ["Youtube", "Chelsea FC", "Uppsala universitet", "IK Sirius FK",
-                     "Google", "Svenska", "Hjärtdjur", "Storängen"]
+            pages = ["Facebook", "Liverpool FC", "Kungliga Tekniska högskolan", "Malmö FF",
+                     "Twitter", "Students' IP", "Uppsala", "Eleda Stadion"]
+            # pages = ["Youtube", "Chelsea FC", "Uppsala universitet", "IK Sirius FK",
+            #          "Google", "Svenska", "Hjärtdjur", "Storängen"] this is the original list
             generator = GenerateSyntheticPrintedDataset(pages=pages, lang="sv", target_dir=args.save_dir)
             generator.generate_dataset(args.num_images, augment_data=args.augment_data)
         else:
             logger.info("Invalid dataset type. Please specify the dataset type")
 
     if args.train:
-        if args.dataset_path is None:
+        if args.dataset_paths is None:
             raise ValueError("Please specify the dataset path")
         if args.lr is None:
             raise ValueError("Please specify the learning rate")
@@ -119,14 +123,17 @@ def transfer_learning(args):
         )
         # get the dataset
         logger.info("Getting the dataset...")
-        data = CustomLoader(args.dataset_path)
+        data = CustomLoader(args.dataset_paths)
         data.generate_dataframe()
         # create the model
         logger.info("Creating the model...")
         model = TrOCR(config, args.save_dir)
         model.build_model_with_pretrained(args.processor, args.vision_encoder_decoder_model)
         # prepare the dataset and loader
-        train_dataloader, eval_dataloader = model.set_data_loader(*model.prepare_dataset(data.get_dataframe()))
+        if args.with_half_data:
+            train_dataloader, eval_dataloader = model.set_data_loader(*model.prepare_dataset(data.get_half_dataframe()))
+        else:
+            train_dataloader, eval_dataloader = model.set_data_loader(*model.prepare_dataset(data.get_dataframe()))
         # train the model
         model.train(train_dataloader, eval_dataloader, eval_every=args.eval_every)
     except Exception as e:
@@ -157,7 +164,7 @@ def train(args):
         # get the dataset
         # data = CustomLoader("datasets/handwritten/augmented/image_labels_dataset.csv")
         logger.info("Getting the dataset...")
-        data = CustomLoader(args.dataset_path)
+        data = CustomLoader(args.dataset_paths)
         data.generate_dataframe()
         # create the model
         logger.info("Creating the model...")

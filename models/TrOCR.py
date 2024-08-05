@@ -1,3 +1,4 @@
+import csv
 from sklearn.model_selection import train_test_split
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -182,7 +183,6 @@ class TrOCR:
         :return: None
         """
         best_cer = float('inf')  # start with a high CER
-        valid_cer = 0.0
         learning_rate = self.config.learning_rate
         best_train_loss = float('inf')  # start with a high loss
 
@@ -210,15 +210,27 @@ class TrOCR:
             logger.info(f"Loss after epoch {epoch}: {train_loss / len(train_dataloader)}")
 
             # evaluate
-            if (epoch + 1) % eval_every == 0:
-                valid_cer = self.evaluate(self.model, eval_dataloader)
-
-            # save the best model
+            if (epoch + 1) % eval_every != 0:
+                continue
+            valid_cer = self.evaluate(self.model, eval_dataloader)
             if valid_cer < best_cer:
-                logger.info("Saving the best model...")
                 best_cer = valid_cer
+                logger.info(f"New best CER found: {best_cer}")
+                logger.info(f"Saving the best model...")
                 self.model.save_pretrained(f"{self.save_dir}/{self.config.model_version}/vision_model/")
                 self.processor.save_pretrained(f"{self.save_dir}/{self.config.model_version}/processor/")
+                # save the best model
+                
+            # record the best CER, loss and learning rate in csv
+            # make sure the file is available first
+            with open(f"{self.save_dir}/{self.config.model_version}/metrics.csv", mode='w') as file:
+                writer = csv.writer(file)
+                writer.writerow(["Epoch", "CER", "Loss", "Learning Rate"])
+                writer.writerow([epoch, best_cer, best_train_loss, learning_rate])
+
+            logger.info("Saving the model...")
+            self.model.save_pretrained(f"{self.save_dir}/{self.config.model_version}/vision_model/")
+            self.processor.save_pretrained(f"{self.save_dir}/{self.config.model_version}/processor/")
 
         logger.info('Finished Training')
         logger.info(f"Best CER: {best_cer}")

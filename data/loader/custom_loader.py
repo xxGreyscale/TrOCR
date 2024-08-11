@@ -1,8 +1,10 @@
 # Get the data
 import os
 import chardet
+import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
+from matplotlib import cm
 from tqdm import tqdm
 from PIL import Image
 
@@ -77,6 +79,11 @@ class CustomLoader(LoaderInterface):
         plt.title('Histogram of Text Lengths')
         plt.xlabel('Text Length')
         plt.ylabel('Frequency')
+
+        # Assign different colors to each bar
+        colors = cm.viridis(np.linspace(0, 1, len(hist.patches)))
+        for patch, color in zip(hist.patches, colors):
+            patch.set_facecolor(color)
 
         # Add a key to each bar in the histogram
         for i in hist.patches:

@@ -66,11 +66,8 @@ class GenerateSyntheticPrintedDataset:
                 content += ". " + _content
             except ConnectTimeout:
                 continue
-            #     runtime error keep going for now
             except PageError:
                 continue
-                # runtime error keep going for now
-                # logger.error(f"Failed to get content from {link} because it's not a Wikipedia page.")
             except:
                 continue
         sentences = re.split(r'(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|\?)\s', content)
@@ -102,8 +99,6 @@ class GenerateSyntheticPrintedDataset:
                 return __sentences
             except Exception as _e:
                 time.sleep(.5)
-                # runtime error keep going for now
-                # logger.error(f"Failed to get sentences from {page_name} with error: {_e}")
 
         with ThreadPoolExecutor(max_workers=cpu_count()) as executor:
             future_to_page = {executor.submit(fetch_sentences, page_name): page_name for page_name in pages}
@@ -136,9 +131,7 @@ class GenerateSyntheticPrintedDataset:
                 font = random.choice(fonts)
                 font_name, font_path = font
                 font_size = random.randint(20, 40)
-                # Create the directory if it doesn't exist
                 paired_fonts.append((sentence, f"image_{str(i).zfill(7)}", (font_name, font_path, font_size)))
-            # get random font
             return paired_fonts
         except Exception as e:
             logger.error(f"Failed to pair fonts with sentences: {e}")
@@ -156,30 +149,22 @@ class GenerateSyntheticPrintedDataset:
         text_height = bbox[3] - bbox[1]
 
         img = Image.new("RGB", (text_width, text_height), "white")
-        # create image
         padding = tuple(random.randint(5, 20) for _ in range(4))
         img = ImageOps.expand(img, padding, fill="white")
         draw = ImageDraw.Draw(img)
 
-        # Ensure that fill values are within valid RGB range
         fill_color = tuple(np.random.randint(0, 100) for _ in range(3))
-
-        # Draw the text
         draw.text((padding[0], padding[1]), sentence, font=font, fill=fill_color)
 
-        # Convert image to numpy array to check for invalid values
         np_img = np.array(img)
 
-        # Check for NaN or infinite values
         if np.isnan(np_img).any() or np.isinf(np_img).any():
             np_img = np.nan_to_num(np_img, nan=0, posinf=255, neginf=0)
             print("Warning: Invalid values encountered and replaced.")
 
-        # Convert back to Image before returning
         img = Image.fromarray(np_img)
         return img
 
-    # Create a function that generates an image with a random font and a random swedish sentence
     def generate_image(self, sentence, img_name, font, augment_data=False):
         """
         Generate an image with a random font and a random Swedish sentence
@@ -199,12 +184,8 @@ class GenerateSyntheticPrintedDataset:
                     logger.error(f"Data augmentation failed: {e}")
                     return None, None
 
-            # save image
-            # Check if the directory exists
-                # Prepare save directory
             images_dir = os.path.join(self.target_dir, "images")
             os.makedirs(images_dir, exist_ok=True)
-            # Save image
             save_path = os.path.join(images_dir, f"{img_name}.jpeg")
             img.save(save_path, format='JPEG')
 
@@ -220,9 +201,6 @@ class GenerateSyntheticPrintedDataset:
         :param augment_data:
         :return:
         """
-        """
-        @todo: Could be a recursive function since number of images is not always guaranteed to a specified number
-        """
         try:
             failed = 0
             generated_images = 0
@@ -231,24 +209,30 @@ class GenerateSyntheticPrintedDataset:
             if not os.path.exists(self.target_dir):
                 os.makedirs(self.target_dir)
             file_exists = os.path.isfile(f"{self.target_dir}/image_labels_dataset.csv")
+
+            results = []
+            with Pool(cpu_count()) as p:
+                for i, (sentence, img_name, font) in enumerate(paired_fonts):
+                    generate_image_func = functools.partial(self.generate_image, img_name=img_name, font=font,
+                                                            augment_data=augment_data)
+                    result = p.apply_async(generate_image_func, (sentence,))
+                    results.append((result, img_name))
+
             with open(f"{self.target_dir}/image_labels_dataset.csv",
                       mode='a' if file_exists else 'w', newline='', encoding='utf-8') as file:
                 writer = csv.writer(file)
                 if not file_exists:
                     writer.writerow(["image_path", "label"])
-                with Pool(cpu_count()) as p:
-                    for i, (sentence, img_name, font) in enumerate(paired_fonts):
-                        generate_image_func = functools.partial(self.generate_image, img_name=img_name, font=font,
-                                                                augment_data=augment_data)
-                        result = p.apply_async(generate_image_func, (sentence,))
-                        font_name, sentence = result.get()
-                        if font_name is None or sentence is None:
-                            failed += 1
-                            continue
-                        writer.writerow([f"{self.target_dir}/images/{img_name}.jpeg", sentence])
-                        generated_images += 1
-                        if generated_images == num_images:
-                            break
+
+                for result, img_name in results:
+                    font_name, sentence = result[0].get()
+                    if font_name is None or sentence is None:
+                        failed += 1
+                        continue
+                    writer.writerow([f"{self.target_dir}/images/{img_name}.jpeg", sentence])
+                    generated_images += 1
+                    if generated_images == num_images:
+                        break
             if failed > 0:
                 logger.info(f"Failed to generate {failed} images")
             logger.info(f"Successfully generated {generated_images} images")

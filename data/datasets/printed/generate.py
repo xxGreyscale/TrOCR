@@ -60,19 +60,19 @@ class GenerateSyntheticPrintedDataset:
     @staticmethod
     def get_sentences(page_name, lang="sv"):
         content, links = GenerateSyntheticPrintedDataset.read_wikipedia_page(page_name, lang)
-        for link in tqdm(links, desc=f"Reading Wikipedia pages links from {page_name}"):
-            try:
-                _content, _links = GenerateSyntheticPrintedDataset.read_wikipedia_page(link, lang)
-                content += ". " + _content
-            except ConnectTimeout:
-                continue
-            #     runtime error keep going for now
-            except PageError:
-                continue
-                # runtime error keep going for now
-                # logger.error(f"Failed to get content from {link} because it's not a Wikipedia page.")
-            except:
-                continue
+        # for link in tqdm(links, desc=f"Reading Wikipedia pages links from {page_name}"):
+        #     try:
+        #         _content, _links = GenerateSyntheticPrintedDataset.read_wikipedia_page(link, lang)
+        #         content += ". " + _content
+        #     except ConnectTimeout:
+        #         continue
+        #     #     runtime error keep going for now
+        #     except PageError:
+        #         continue
+        #         # runtime error keep going for now
+        #         # logger.error(f"Failed to get content from {link} because it's not a Wikipedia page.")
+        #     except:
+        #         continue
         sentences = re.split(r'(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|\?)\s', content)
         sentences = [sentence.replace('\n', ' ').replace('\t', ' ') for sentence in sentences]
         return sentences
@@ -144,26 +144,27 @@ class GenerateSyntheticPrintedDataset:
             logger.error(f"Failed to pair fonts with sentences: {e}")
 
     @staticmethod
-    def setup_image(sentence, font):
-        font_name, font_path, font_size = font
-        img = Image.new("RGB", (1, 1), "white")
-        draw = ImageDraw.Draw(img)
+    def setup_image(sentence, __font):
+        font_name, font_path, font_size = __font
         font = ImageFont.truetype(font_path, size=font_size)
+        # Calculate text size
+        text_width = int(font.getlength(sentence))
+        text_height = font.size
 
-        # Get text bounding box
-        bbox = draw.textbbox((0, 0), sentence, font=font)
-        text_width = bbox[2] - bbox[0]
-        text_height = bbox[3] - bbox[1]
+        # Define padding
+        padding = 10  # Fixed padding for simplicity
+        total_width = text_width + (padding * 2)
+        total_height = text_height + (padding * 2)
 
-        img = Image.new("RGB", (text_width, text_height), "white")
-        # create image
-        padding = tuple(random.randint(5, 20) for _ in range(4))
-        img = ImageOps.expand(img, padding, fill="white")
+        # Create image with white background
+        img = Image.new("RGB", (total_width, total_height), color="white")
         draw = ImageDraw.Draw(img)
-        # create one line sentence
-        # place image in the center
-        draw.text((padding[0], padding[1]), sentence,
-                  font=font, fill=tuple([np.random.randint(0, 100)] * 3), )
+
+        # Define text color
+        text_color = tuple(random.randint(0, 100) for _ in range(3))  # Dark color
+
+        # Draw text
+        draw.text((padding, padding), sentence, font=font, fill=text_color)
         return img
 
     # Create a function that generates an image with a random font and a random swedish sentence
@@ -223,7 +224,7 @@ class GenerateSyntheticPrintedDataset:
                         if font_name is None or sentence is None:
                             failed += 1
                             continue
-                        writer.writerow([f"{self.target_dir}/images/{img_name}", sentence])
+                        writer.writerow([f"{self.target_dir}/images/{img_name}.jpeg", sentence])
                         generated_images += 1
                         if generated_images == num_images:
                             break

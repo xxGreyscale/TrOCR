@@ -206,37 +206,46 @@ class GenerateSyntheticPrintedDataset:
             generated_images = 0
             logger.info(f"Generating {num_images} images...")
             paired_fonts = self.pair_fonts_with_sentences()
+
             if not os.path.exists(self.target_dir):
                 os.makedirs(self.target_dir)
+
             file_exists = os.path.isfile(f"{self.target_dir}/image_labels_dataset.csv")
 
-            results = []
-            with Pool(cpu_count()) as p:
-                for i, (sentence, img_name, font) in enumerate(paired_fonts):
-                    generate_image_func = functools.partial(self.generate_image, img_name=img_name, font=font,
-                                                            augment_data=augment_data)
-                    result = p.apply_async(generate_image_func, (sentence,))
-                    results.append((result, img_name))
-
+            # Open CSV file once for writing
             with open(f"{self.target_dir}/image_labels_dataset.csv",
                       mode='a' if file_exists else 'w', newline='', encoding='utf-8') as file:
                 writer = csv.writer(file)
                 if not file_exists:
                     writer.writerow(["image_path", "label"])
 
-                for result, img_name in results:
-                    font_name, sentence = result[0].get()
-                    if font_name is None or sentence is None:
-                        failed += 1
-                        continue
-                    writer.writerow([f"{self.target_dir}/images/{img_name}.jpeg", sentence])
-                    generated_images += 1
-                    if generated_images == num_images:
-                        break
-            if failed > 0:
-                logger.info(f"Failed to generate {failed} images")
-            logger.info(f"Successfully generated {generated_images} images")
-            return None
+                with Pool(cpu_count()) as p:
+                    async_results = []
+
+                    for i, (sentence, img_name, font) in tqdm(enumerate(paired_fonts), total=len(paired_fonts),
+                                                              desc="Generating images"):
+                        generate_image_func = functools.partial(self.generate_image, img_name=img_name, font=font,
+                                                                augment_data=augment_data)
+                        async_results.append(p.apply_async(generate_image_func, (sentence,)))
+
+                    for async_result in tqdm(async_results, total=len(async_results), desc="Processing results"):
+                        try:
+                            font_name, sentence = async_result.get()
+                            if font_name is None or sentence is None:
+                                failed += 1
+                                continue
+                            writer.writerow([f"{self.target_dir}/images/{img_name}.jpeg", sentence])
+                            generated_images += 1
+                            if generated_images == num_images:
+                                break
+                        except Exception as e:
+                            logger.error(f"Error processing result: {e}")
+                            failed += 1
+
+                if failed > 0:
+                    logger.info(f"Failed to generate {failed} images")
+                logger.info(f"Successfully generated {generated_images} images")
+                return None
         except FileNotFoundError as e:
             logger.error(f"File not found: {e}")
         except IsADirectoryError as e:

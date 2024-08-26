@@ -13,7 +13,7 @@
       <excludeFolder url="file://$MODULE_DIR$/transcribed_data/labours-memory" />
       <excludeFolder url="file://$MODULE_DIR$/wandb" />
     </content>
-    <orderEntry type="jdk" jdkName="ml" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="dataML" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
 </module>

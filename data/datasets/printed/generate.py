@@ -223,7 +223,7 @@ class GenerateSyntheticPrintedDataset:
                         if font_name is None or sentence is None:
                             failed += 1
                             continue
-                        writer.writerow([f"{self.target_dir}/images/{img_name}.jpeg", sentence])
+                        writer.writerow([f"{self.target_dir}/images/{img_name}", sentence])
                         generated_images += 1
                         if generated_images == num_images:
                             break

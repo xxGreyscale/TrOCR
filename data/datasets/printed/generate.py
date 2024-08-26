@@ -60,19 +60,19 @@ class GenerateSyntheticPrintedDataset:
     @staticmethod
     def get_sentences(page_name, lang="sv"):
         content, links = GenerateSyntheticPrintedDataset.read_wikipedia_page(page_name, lang)
-        # for link in tqdm(links, desc=f"Reading Wikipedia pages links from {page_name}"):
-        #     try:
-        #         _content, _links = GenerateSyntheticPrintedDataset.read_wikipedia_page(link, lang)
-        #         content += ". " + _content
-        #     except ConnectTimeout:
-        #         continue
-        #     #     runtime error keep going for now
-        #     except PageError:
-        #         continue
-        #         # runtime error keep going for now
-        #         # logger.error(f"Failed to get content from {link} because it's not a Wikipedia page.")
-        #     except:
-        #         continue
+        for link in tqdm(links, desc=f"Reading Wikipedia pages links from {page_name}"):
+            try:
+                _content, _links = GenerateSyntheticPrintedDataset.read_wikipedia_page(link, lang)
+                content += ". " + _content
+            except ConnectTimeout:
+                continue
+            #     runtime error keep going for now
+            except PageError:
+                continue
+                # runtime error keep going for now
+                # logger.error(f"Failed to get content from {link} because it's not a Wikipedia page.")
+            except:
+                continue
         sentences = re.split(r'(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|\?)\s', content)
         sentences = [sentence.replace('\n', ' ').replace('\t', ' ') for sentence in sentences]
         return sentences

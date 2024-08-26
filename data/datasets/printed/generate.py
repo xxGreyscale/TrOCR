@@ -60,19 +60,19 @@ class GenerateSyntheticPrintedDataset:
     @staticmethod
     def get_sentences(page_name, lang="sv"):
         content, links = GenerateSyntheticPrintedDataset.read_wikipedia_page(page_name, lang)
-        for link in tqdm(links, desc=f"Reading Wikipedia pages links from {page_name}"):
-            try:
-                _content, _links = GenerateSyntheticPrintedDataset.read_wikipedia_page(link, lang)
-                content += ". " + _content
-            except ConnectTimeout:
-                continue
-            #     runtime error keep going for now
-            except PageError:
-                continue
-                # runtime error keep going for now
-                # logger.error(f"Failed to get content from {link} because it's not a Wikipedia page.")
-            except:
-                continue
+        # for link in tqdm(links, desc=f"Reading Wikipedia pages links from {page_name}"):
+        #     try:
+        #         _content, _links = GenerateSyntheticPrintedDataset.read_wikipedia_page(link, lang)
+        #         content += ". " + _content
+        #     except ConnectTimeout:
+        #         continue
+        #     #     runtime error keep going for now
+        #     except PageError:
+        #         continue
+        #         # runtime error keep going for now
+        #         # logger.error(f"Failed to get content from {link} because it's not a Wikipedia page.")
+        #     except:
+        #         continue
         sentences = re.split(r'(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|\?)\s', content)
         sentences = [sentence.replace('\n', ' ').replace('\t', ' ') for sentence in sentences]
         return sentences
@@ -181,15 +181,24 @@ class GenerateSyntheticPrintedDataset:
         try:
             img = self.setup_image(sentence, font)
             if augment_data:
-                img = self.custom_transforms.data_transformer(img)
+                try:
+                    img = self.custom_transforms.data_transformer(img)
+                except Exception as e:
+                    logger.error(f"Data augmentation failed: {e}")
+                    return None, None
+
             # save image
             # Check if the directory exists
-            if not os.path.exists(f"{self.target_dir}/images"):
-                os.makedirs(os.path.join(self.target_dir, "images"))
-            img.save(os.path.join(self.target_dir, "images", f"{img_name}.jpeg"))
+                # Prepare save directory
+            images_dir = os.path.join(self.target_dir, "images")
+            os.makedirs(images_dir, exist_ok=True)
+            # Save image
+            save_path = os.path.join(images_dir, f"{img_name}.jpeg")
+            img.save(save_path, format='JPEG')
+
             return font_name, sentence
         except Exception as e:
-            logger.error(f"Failed to generate image: {e}")
+            logger.error(f"Failed to generate image '{img_name}': {e}")
             return None, None
 
     def generate_dataset(self, num_images, augment_data=False):

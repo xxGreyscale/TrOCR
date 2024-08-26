@@ -1,10 +1,9 @@
-# This is a sample Python script.
 import argparse
 import logging
 from data.datasets.handwritten.generate_dataset import GenerateDemoktatiLabourerDataset
 from data.datasets.printed.generate import GenerateSyntheticPrintedDataset
 from data.loader.custom_loader import CustomLoader
-from models.TrOCR import TrOCR
+from models.trocr.TrOCR import TrOCR
 from utils.config import Config
 import warnings
 
@@ -69,7 +68,7 @@ def main():
                      "Twitter", "Students' IP", "Uppsala", "Eleda Stadion"]
             # pages = ["Youtube", "Chelsea FC", "Uppsala universitet", "IK Sirius FK",
             #          "Google", "Svenska", "Hjärtdjur", "Storängen"] this is the original list
-            generator = GenerateSyntheticPrintedDataset(pages=pages, lang="sv", target_dir=args.save_dir)
+            generator = GenerateSyntheticPrintedDataset(pages=pages, target_dir=args.save_dir)
             generator.generate_dataset(args.num_images, augment_data=args.augment_data)
         else:
             logger.info("Invalid dataset type. Please specify the dataset type")
@@ -107,7 +106,7 @@ def evaluate():
 
 def transfer_learning(args):
     if args.processor is None:
-        raise ValueError("Please specify the TrOCR model")
+        raise ValueError("Please specify the trocr model")
     if args.vision_encoder_decoder_model is None:
         raise ValueError("Please specify the Vision Encoder Decoder model")
     try:

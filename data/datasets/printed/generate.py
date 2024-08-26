@@ -146,25 +146,37 @@ class GenerateSyntheticPrintedDataset:
     @staticmethod
     def setup_image(sentence, __font):
         font_name, font_path, font_size = __font
+        img = Image.new("RGB", (1, 1), "white")
+        draw = ImageDraw.Draw(img)
         font = ImageFont.truetype(font_path, size=font_size)
-        # Calculate text size
-        text_width = int(font.getlength(sentence))
-        text_height = font.size
 
-        # Define padding
-        padding = 10  # Fixed padding for simplicity
-        total_width = text_width + (padding * 2)
-        total_height = text_height + (padding * 2)
+        # Get text bounding box
+        bbox = draw.textbbox((0, 0), sentence, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
 
-        # Create image with white background
-        img = Image.new("RGB", (total_width, total_height), color="white")
+        img = Image.new("RGB", (text_width, text_height), "white")
+        # create image
+        padding = tuple(random.randint(5, 20) for _ in range(4))
+        img = ImageOps.expand(img, padding, fill="white")
         draw = ImageDraw.Draw(img)
 
-        # Define text color
-        text_color = tuple(random.randint(0, 100) for _ in range(3))  # Dark color
+        # Ensure that fill values are within valid RGB range
+        fill_color = tuple(np.random.randint(0, 100) for _ in range(3))
 
-        # Draw text
-        draw.text((padding, padding), sentence, font=font, fill=text_color)
+        # Draw the text
+        draw.text((padding[0], padding[1]), sentence, font=font, fill=fill_color)
+
+        # Convert image to numpy array to check for invalid values
+        np_img = np.array(img)
+
+        # Check for NaN or infinite values
+        if np.isnan(np_img).any() or np.isinf(np_img).any():
+            np_img = np.nan_to_num(np_img, nan=0, posinf=255, neginf=0)
+            print("Warning: Invalid values encountered and replaced.")
+
+        # Convert back to Image before returning
+        img = Image.fromarray(np_img)
         return img
 
     # Create a function that generates an image with a random font and a random swedish sentence
@@ -239,7 +251,7 @@ class GenerateSyntheticPrintedDataset:
                             break
             if failed > 0:
                 logger.info(f"Failed to generate {failed} images")
-            logger.info(f"Dataset generation completed!")
+            logger.info(f"Successfully generated {generated_images} images")
             return None
         except FileNotFoundError as e:
             logger.error(f"File not found: {e}")

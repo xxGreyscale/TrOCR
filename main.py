@@ -65,9 +65,8 @@ def main():
                 logger.info(f"Error generating dataset: {e}")
         elif args.printed:
             pages = ["Facebook", "Liverpool FC", "Kungliga Tekniska högskolan", "Malmö FF",
-                     "Twitter", "Students' IP", "Uppsala", "Eleda Stadion"]
-            # pages = ["Youtube", "Chelsea FC", "Uppsala universitet", "IK Sirius FK",
-            #          "Google", "Svenska", "Hjärtdjur", "Storängen"] this is the original list
+                     "Twitter", "Students' IP", "Uppsala", "Eleda Stadion", "Youtube", "Chelsea FC",
+                     "Uppsala universitet", "IK Sirius FK", "Google", "Svenska", "Hjärtdjur", "Storängen"]
             generator = GenerateSyntheticPrintedDataset(pages=pages, target_dir=args.save_dir)
             generator.generate_dataset(args.num_images, augment_data=args.augment_data)
         else:

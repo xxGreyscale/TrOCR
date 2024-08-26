@@ -18,5 +18,7 @@ transcribed_data/*
 # ignore wandb files
 wandb/
 
+raw/*
+
 #ignore all custom models
 custom_models/*

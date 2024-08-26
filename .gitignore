@@ -19,6 +19,7 @@ transcribed_data/*
 wandb/
 
 raw/*
+.git/
 
 #ignore all custom models
 custom_models/*

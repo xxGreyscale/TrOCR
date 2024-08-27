@@ -141,7 +141,11 @@ class GenerateSyntheticPrintedDataset:
         font_name, font_path, font_size = __font
         img = Image.new("RGB", (1, 1), "white")
         draw = ImageDraw.Draw(img)
-        font = ImageFont.truetype(font_path, size=font_size)
+        try:
+            font = ImageFont.truetype(font_path, size=font_size)
+        except IOError:
+            # logger.error(f"Failed to load font: {font_path}")
+            font = ImageFont.load_default()
 
         # Get text bounding box
         bbox = draw.textbbox((0, 0), sentence, font=font)
@@ -189,7 +193,16 @@ class GenerateSyntheticPrintedDataset:
             save_path = os.path.join(images_dir, f"{img_name}.jpeg")
             img.save(save_path, format='JPEG')
 
-            return font_name, sentence
+            return font_name, img_name, sentence
+        except FileNotFoundError as e:
+            logger.error(f"File not found: {e}")
+            return None, None
+        except IsADirectoryError as e:
+            logger.error(f"Directory error: {e}")
+            return None, None
+        except OSError as e:
+            logger.error(f"OS error: {e}")
+            return None, None
         except Exception as e:
             logger.error(f"Failed to generate image '{img_name}': {e}")
             return None, None
@@ -219,33 +232,36 @@ class GenerateSyntheticPrintedDataset:
                 if not file_exists:
                     writer.writerow(["image_path", "label"])
 
-                with Pool(cpu_count()) as p:
-                    async_results = []
+                with Pool(cpu_count()) as pool:
+                    # Create an iterable of arguments with img_name properly defined
+                    if augment_data:
+                        args = [(sentence, img_name, font, augment_data)
+                                for i, (sentence, img_name, font) in enumerate(paired_fonts)]
+                    else:
+                        args = [(sentence, img_name , font)
+                                for i, (sentence, img_name, font) in enumerate(paired_fonts)]
 
-                    for i, (sentence, img_name, font) in tqdm(enumerate(paired_fonts), total=len(paired_fonts),
-                                                              desc="Generating images"):
-                        generate_image_func = functools.partial(self.generate_image, img_name=img_name, font=font,
-                                                                augment_data=augment_data)
-                        async_results.append(p.apply_async(generate_image_func, (sentence,)))
-
-                    for async_result in tqdm(async_results, total=len(async_results), desc="Processing results"):
+                    # Submit tasks to the pool and process the results as they become available
+                    for result in tqdm(pool.imap_unordered(self.generate_image_wrapper, args), total=len(paired_fonts),
+                                       desc="Processing images"):
                         try:
-                            font_name, sentence = async_result.get()
+                            font_name, img_name, sentence = result
                             if font_name is None or sentence is None:
                                 failed += 1
                                 continue
                             writer.writerow([f"{self.target_dir}/images/{img_name}.jpeg", sentence])
                             generated_images += 1
-                            if generated_images == num_images:
+                            if generated_images >= num_images:
                                 break
                         except Exception as e:
                             logger.error(f"Error processing result: {e}")
                             failed += 1
 
-                if failed > 0:
-                    logger.info(f"Failed to generate {failed} images")
-                logger.info(f"Successfully generated {generated_images} images")
-                return None
+            if failed > 0:
+                logger.info(f"Failed to generate {failed} images")
+            logger.info(f"Successfully generated {generated_images} images")
+            return None
+
         except FileNotFoundError as e:
             logger.error(f"File not found: {e}")
         except IsADirectoryError as e:
@@ -254,3 +270,7 @@ class GenerateSyntheticPrintedDataset:
             logger.error(f"CSV error: {e}")
         except Exception as e:
             logger.error(f"An unexpected error occurred: {e}")
+
+    def generate_image_wrapper(self, args):
+        sentence, img_name, font, augment = args
+        return self.generate_image(sentence, img_name, font, augment)

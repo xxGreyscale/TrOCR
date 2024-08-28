@@ -4,7 +4,7 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from PIL import Image
 from tqdm import tqdm
-from transformers import BertTokenizer, ViTImageProcessor, RobertaTokenizer, TrOCRProcessor
+from transformers import BertTokenizer, DeiTImageProcessor, ViTImageProcessor, RobertaTokenizer, TrOCRProcessor
 from evaluate import load
 from transformers import VisionEncoderDecoderModel
 import logging
@@ -89,7 +89,10 @@ class TrOCR:
         else:
             tokenizer = RobertaTokenizer.from_pretrained(self.config.decoder)
 
-        feature_extractor = ViTImageProcessor.from_pretrained(self.config.encoder)
+        if self.config.image_processor_type == "DeiT":
+            feature_extractor = ViTImageProcessor.from_pretrained(self.config.encoder)
+        else:
+            feature_extractor = DeiTImageProcessor.from_pretrained(self.config.encoder)
         processor = TrOCRProcessor(image_processor=feature_extractor, tokenizer=tokenizer)
         model = VisionEncoderDecoderModel.from_encoder_decoder_pretrained(self.config.encoder, self.config.decoder)
         model.to(self.device)

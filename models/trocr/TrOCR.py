@@ -129,7 +129,7 @@ class TrOCR:
         # Wrap the model with DDP
         model = nn.parallel.DistributedDataParallel(model, device_ids=[self.rank])
 
-        model, processor = self.setup_model_config(processor, model)
+        model, processor = self.setup_model_config(processor, model.module)
         self.model = model
         self.processor = processor
 

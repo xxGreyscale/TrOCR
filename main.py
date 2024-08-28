@@ -1,6 +1,10 @@
 import argparse
 import json
 import logging
+
+import torch
+import torch.distributed as dist
+
 from data.datasets.handwritten.generate_dataset import GenerateDemoktatiLabourerDataset
 from data.datasets.printed.generate import GenerateSyntheticPrintedDataset
 from data.loader.custom_loader import CustomLoader
@@ -8,11 +12,9 @@ from models.trocr.TrOCR import TrOCR
 from utils.config import Config
 import warnings
 
-
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
 
 # Vision Transformers don't support Flash Attention yet
 warnings.filterwarnings("ignore", message=".*Torch was not compiled with flash attention.*")
@@ -61,7 +63,7 @@ def main():
             tokenizer_type=data.get('tokenizer_type'),
             encoder=data.get('encoder'),
             image_processor_type=data.get('image_processor_type'),
-            eval_frequency=data.get('eval_frequency') # Evaluate the model every n epochs
+            eval_frequency=data.get('eval_frequency')  # Evaluate the model every n epochs
         )
         return _config
 
@@ -86,6 +88,7 @@ def main():
             logger.info("Invalid dataset type. Please specify the dataset type")
 
     if args.train:
+        world_size = torch.cuda.device_count()  # Number of available GPUs
         if args.dataset_paths is None:
             raise ValueError("Please specify the dataset path")
         if config.learning_rate is None:
@@ -101,9 +104,19 @@ def main():
         # Check if we are using a pretrained model or a custom model
         if args.pretrained is not None:
             logger.info("Using pretrained model...")
-            transfer_learning(config, args)
+            torch.multiprocessing.spawn(
+                transfer_learning,
+                args=(world_size, config, args.dataset_paths, args.save_dir, args.with_half_data),
+                nprocs=world_size,
+                join=True
+            )
         elif args.custom is not None:
-            train(config, args)
+            torch.multiprocessing.spawn(
+                train,
+                args=(world_size, config, args.dataset_paths, args.save_dir),
+                nprocs=world_size,
+                join=True
+            )
         else:
             logger.error("Invalid model type. Please specify the model type")
 
@@ -116,7 +129,7 @@ def evaluate():
     pass
 
 
-def transfer_learning(config: Config, args):
+def transfer_learning(rank, world_size, config: Config, dataset_paths, save_dir, half_data=False):
     if config.processor is None:
         raise ValueError("Please specify the trocr model")
     if config.vision_encoder_decoder_model is None:
@@ -124,24 +137,32 @@ def transfer_learning(config: Config, args):
     try:
         # get the dataset
         logger.info("Getting the dataset...")
-        data = CustomLoader(args.dataset_paths)
+        data = CustomLoader(dataset_paths)
         data.generate_dataframe()
+
         # create the model
+        logger.info("Setting up environment for distributed training...")
+        dist.init_process_group("nccl", rank=rank, world_size=world_size)
         logger.info("Creating the model...")
-        model = TrOCR(config, args.save_dir)
+        model = TrOCR(config, save_dir, rank)
         model.build_model_with_pretrained(config.processor, config.vision_encoder_decoder_model)
+
         # prepare the dataset and loader
-        if args.with_half_data:
+        if half_data:
             train_dataloader, eval_dataloader = model.set_data_loader(*model.prepare_dataset(data.get_half_dataframe()))
         else:
             train_dataloader, eval_dataloader = model.set_data_loader(*model.prepare_dataset(data.get_dataframe()))
+
         # train the model
         model.train(train_dataloader, eval_dataloader, eval_every=config.eval_frequency)
+
+        # Cleanup the process group
+        dist.destroy_process_group()
     except Exception as e:
         logger.error(f"Error training model: {e}")
 
 
-def train(config: Config, args):
+def train(rank, world_size, config: Config, dataset_paths, save_dir):
     if config.decoder is None:
         raise ValueError("Please specify the decoder type")
     if config.tokenizer_type is None:
@@ -150,18 +171,25 @@ def train(config: Config, args):
         raise ValueError("Please specify the encoder type")
     try:
         # get the dataset
-        # data = CustomLoader("datasets/handwritten/augmented/image_labels_dataset.csv")
         logger.info("Getting the dataset...")
-        data = CustomLoader(args.dataset_paths)
+        data = CustomLoader(dataset_paths)
         data.generate_dataframe()
+
         # create the model
+        logger.info("Setting up environment for distributed training...")
+        dist.init_process_group("nccl", rank=rank, world_size=world_size)
         logger.info("Creating the model...")
-        model = TrOCR(config, args.save_dir)
+        model = TrOCR(config, save_dir, rank)
         model.build_model()
+
         # prepare the dataset and loader
         train_dataloader, eval_dataloader = model.set_data_loader(*model.prepare_dataset(data.get_dataframe()))
+
         # train the model
         model.train(train_dataloader, eval_dataloader, eval_every=config.eval_frequency)
+
+        # Cleanup the process group
+        dist.destroy_process_group()
     except Exception as e:
         logger.error(f"Error training model: {e}")
 

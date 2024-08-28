@@ -91,8 +91,10 @@ class TrOCR:
 
         if self.config.image_processor_type == "DeiT":
             feature_extractor = ViTImageProcessor.from_pretrained(self.config.encoder)
-        else:
+        elif self.config.image_processor_type == "ViT":
             feature_extractor = DeiTImageProcessor.from_pretrained(self.config.encoder)
+        else:
+            logger.error("Unknown Image processor type")
         processor = TrOCRProcessor(image_processor=feature_extractor, tokenizer=tokenizer)
         model = VisionEncoderDecoderModel.from_encoder_decoder_pretrained(self.config.encoder, self.config.decoder)
         model.to(self.device)

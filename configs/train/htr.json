@@ -1,0 +1,12 @@
+{
+    "lr": 6.5e-5,
+    "epochs": 3,
+    "eval_frequency": 3,
+    "batch_size": 128,
+    "max_target_length": 108,
+    "image_processor_type": "DeiT",
+    "encoder": "facebook/deit-small-distilled-patch16-224",
+    "tokenizer_type": "BERT",
+    "decoder": "KBLab/bert-base-swedish-cased",
+    "model_version": 1.0
+}

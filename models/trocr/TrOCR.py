@@ -9,6 +9,7 @@ from transformers import BertTokenizer, DeiTImageProcessor, ViTImageProcessor, R
 from evaluate import load
 from transformers import VisionEncoderDecoderModel
 import logging
+import torch.distributed as dist
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -191,6 +192,13 @@ class TrOCR:
         logger.info(f"learning rate: {self.config.learning_rate}")
         return valid_cer
 
+    @staticmethod
+    def average_gradients(loss):
+        dist.reduce(loss, dst=0, op=dist.ReduceOp.SUM)  # Sum the loss across all processes
+        if dist.get_rank() == 0:  # Only rank 0 will have the sum, so we average it
+            loss /= dist.get_world_size()  # Divide by the number of processes to get the average
+        return loss
+
     def train(self, train_dataloader, eval_dataloader, eval_every=1):
         """
         Train the model with the specified configuration
@@ -215,10 +223,13 @@ class TrOCR:
                 outputs = self.model(**batch)
                 loss = outputs.loss
                 loss.backward()
+
+                # Average the loss across all GPUs
+                train_loss += self.average_gradients(loss).item()
+
                 optimizer.step()
                 optimizer.zero_grad()
 
-                train_loss += loss.item()
             if train_loss < best_train_loss:
                 best_train_loss = train_loss
                 logger.info(f"New best train loss found: {best_train_loss / len(train_dataloader)}")
@@ -244,5 +255,5 @@ class TrOCR:
                         writer.writerow(["Epoch", "CER", "Loss", "Learning Rate"])
                         writer.writerow([epoch, best_cer, best_train_loss, learning_rate])
 
-                        logger.info('Finished Training')
-                        logger.info(f"Best CER: {best_cer}")
+        logger.info('Finished Training')
+        logger.info(f"Best CER: {best_cer}")

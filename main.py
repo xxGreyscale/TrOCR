@@ -1,16 +1,16 @@
 import argparse
 import json
 import logging
-
 import torch
 import torch.distributed as dist
+import torch.multiprocessing as mp
+import warnings
 
 from data.datasets.handwritten.generate_dataset import GenerateDemoktatiLabourerDataset
 from data.datasets.printed.generate import GenerateSyntheticPrintedDataset
 from data.loader.custom_loader import CustomLoader
 from models.trocr.TrOCR import TrOCR
 from utils.config import Config
-import warnings
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -21,10 +21,6 @@ warnings.filterwarnings("ignore", message=".*Torch was not compiled with flash a
 warnings.filterwarnings("ignore", message=".*We strongly recommend passing in an `attention_mask`.*")
 
 
-# Press ⌃R to execute it or replace it with your code.
-# Press Double ⇧ to search everywhere for classes, files, tool windows, actions, and settings.
-
-# Press the green button in the gutter to run the script.
 def main():
     parser = argparse.ArgumentParser(description='Process some integers.')
     parser.add_argument('--generate_dataset', action=argparse.BooleanOptionalAction,
@@ -67,10 +63,10 @@ def main():
         )
         return _config
 
-    # Usage
-
     args = parser.parse_args()
     config = read_json_file(args.train_config_path)
+    world_size = torch.cuda.device_count()  # Number of available GPUs
+
     if args.generate_dataset:
         if args.htr:
             try:
@@ -88,7 +84,6 @@ def main():
             logger.info("Invalid dataset type. Please specify the dataset type")
 
     if args.train:
-        world_size = torch.cuda.device_count()  # Number of available GPUs
         if args.dataset_paths is None:
             raise ValueError("Please specify the dataset path")
         if config.learning_rate is None:
@@ -101,17 +96,17 @@ def main():
             raise ValueError("Please specify the maximum target length")
         if config.model_version is None:
             raise ValueError("Please specify the model version")
-        # Check if we are using a pretrained model or a custom model
-        if args.pretrained is not None:
+
+        if args.pretrained:
             logger.info("Using pretrained model...")
-            torch.multiprocessing.spawn(
+            mp.spawn(
                 transfer_learning,
                 args=(world_size, config, args.dataset_paths, args.save_dir, args.with_half_data),
                 nprocs=world_size,
                 join=True
             )
-        elif args.custom is not None:
-            torch.multiprocessing.spawn(
+        elif args.custom:
+            mp.spawn(
                 train,
                 args=(world_size, config, args.dataset_paths, args.save_dir),
                 nprocs=world_size,
@@ -121,77 +116,59 @@ def main():
             logger.error("Invalid model type. Please specify the model type")
 
 
-def predict():
-    pass
-
-
-def evaluate():
-    pass
-
-
 def transfer_learning(rank, world_size, config: Config, dataset_paths, save_dir, half_data=False):
-    if config.processor is None:
-        raise ValueError("Please specify the trocr model")
-    if config.vision_encoder_decoder_model is None:
-        raise ValueError("Please specify the Vision Encoder Decoder model")
     try:
-        # get the dataset
+        dist.init_process_group("nccl", rank=rank, world_size=world_size)
+        logger.info(f"Rank {rank}: Initializing process group for transfer learning")
+
+        # Load the dataset
         logger.info("Getting the dataset...")
         data = CustomLoader(dataset_paths)
         data.generate_dataframe()
 
-        # create the model
-        logger.info("Setting up environment for distributed training...")
-        dist.init_process_group("nccl", rank=rank, world_size=world_size)
-        logger.info("Creating the model...")
-        model = TrOCR(config, save_dir, rank)
+        # Create the model
+        model = TrOCR(config, save_dir, rank, world_size)
         model.build_model_with_pretrained(config.processor, config.vision_encoder_decoder_model)
 
-        # prepare the dataset and loader
+        # Prepare the data loaders
         if half_data:
             train_dataloader, eval_dataloader = model.set_data_loader(*model.prepare_dataset(data.get_half_dataframe()))
         else:
             train_dataloader, eval_dataloader = model.set_data_loader(*model.prepare_dataset(data.get_dataframe()))
 
-        # train the model
+        # Train the model
         model.train(train_dataloader, eval_dataloader, eval_every=config.eval_frequency)
 
-        # Cleanup the process group
-        dist.destroy_process_group()
     except Exception as e:
-        logger.error(f"Error training model: {e}")
+        logger.error(f"Rank {rank}: Error during transfer learning: {e}")
+    finally:
+        dist.destroy_process_group()
 
 
 def train(rank, world_size, config: Config, dataset_paths, save_dir):
-    if config.decoder is None:
-        raise ValueError("Please specify the decoder type")
-    if config.tokenizer_type is None:
-        raise ValueError("Please specify the tokenizer type")
-    if config.encoder is None:
-        raise ValueError("Please specify the encoder type")
     try:
-        # get the dataset
+        dist.init_process_group("nccl", rank=rank, world_size=world_size)
+        logger.info(f"Rank {rank}: Initializing process group for training")
+
+        # Load the dataset
         logger.info("Getting the dataset...")
         data = CustomLoader(dataset_paths)
         data.generate_dataframe()
 
-        # create the model
-        logger.info("Setting up environment for distributed training...")
-        dist.init_process_group("nccl", rank=rank, world_size=world_size)
-        logger.info("Creating the model...")
-        model = TrOCR(config, save_dir, rank)
+        # Create the model
+        model = TrOCR(config, save_dir, rank, world_size)
         model.build_model()
 
-        # prepare the dataset and loader
+        # Prepare the data loaders
         train_dataloader, eval_dataloader = model.set_data_loader(*model.prepare_dataset(data.get_dataframe()))
 
-        # train the model
+        # Train the model
         model.train(train_dataloader, eval_dataloader, eval_every=config.eval_frequency)
 
-        # Cleanup the process group
-        dist.destroy_process_group()
     except Exception as e:
-        logger.error(f"Error training model: {e}")
+        logger.error(f"Rank {rank}: Error during training: {e}")
+    finally:
+        dist.destroy_process_group()
 
 
 if __name__ == '__main__':

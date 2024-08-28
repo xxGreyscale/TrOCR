@@ -38,12 +38,13 @@ class CustomDataset(Dataset):
 
 
 class TrOCR:
-    def __init__(self, config, save_dir, rank):
+    def __init__(self, config, save_dir, rank, world_size):
         self.config = config
         self.save_dir = save_dir
         self.cer_metric = load("cer", trust_remote_code=True)
-        self.device = torch.device(f"cuda:{rank}")
         self.rank = rank
+        self.world_size = world_size
+        self.device = torch.device(f"cuda:{rank}")
         self.model = None
         self.processor = None
 
@@ -77,6 +78,27 @@ class TrOCR:
         logger.info(f"Train dataset: {len(train_dataset)}")
         logger.info(f"Eval dataset: {len(eval_dataset)}")
         return train_dataset, eval_dataset
+
+    def build_model_with_pretrained(self, processor_path, vision_encoder_decoder_model_path, use_fast=False):
+        """
+        Build the model with a pre-trained model
+        Technically, this is used for fine-tuning. And the model path is the same with the processor path
+        :param vision_encoder_decoder_model_path:
+        :param processor_path:
+        :param use_fast:
+        :return: nothing
+        """
+        processor = TrOCRProcessor.from_pretrained(processor_path, use_fast=use_fast)
+        model = VisionEncoderDecoderModel.from_pretrained(vision_encoder_decoder_model_path)
+        # Move the model to the specified device
+        model.to(self.device)
+
+        # Wrap the model with DDP
+        model = nn.parallel.DistributedDataParallel(model, device_ids=[self.rank])
+        model, processor = self.setup_model_config(processor, model)
+
+        self.model = model
+        self.processor = processor
 
     def build_model(self):
         """
@@ -126,28 +148,6 @@ class TrOCR:
         model.config.num_beams = 4
         return model, processor
 
-    def build_model_with_pretrained(self, processor_path, vision_encoder_decoder_model_path, use_fast=False):
-        """
-        Build the model with a pre-trained model
-        Technically, this is used for fine-tuning. And the model path is the same with the processor path
-        :param vision_encoder_decoder_model_path:
-        :param processor_path:
-        :param use_fast:
-        :return: nothing
-        """
-        processor = TrOCRProcessor.from_pretrained(processor_path, use_fast=use_fast)
-        model = VisionEncoderDecoderModel.from_pretrained(vision_encoder_decoder_model_path)
-
-        # Move the model to the specified device
-        model.to(self.device)
-
-        # Wrap the model with DDP
-        model = nn.parallel.DistributedDataParallel(model, device_ids=[self.rank])
-
-        model, processor = self.setup_model_config(processor, model)
-        self.model = model
-        self.processor = processor
-
     def set_data_loader(self, train_dataset, eval_dataset):
         """
         Set the data loader for training and evaluation
@@ -156,8 +156,8 @@ class TrOCR:
         :return: train_dataloader, eval_dataloader
         """
         # Use DistributedSampler for distributed training
-        train_sampler = DistributedSampler(train_dataset)
-        eval_sampler = DistributedSampler(eval_dataset)
+        train_sampler = DistributedSampler(train_dataset, num_replicas=self.world_size, rank=self.rank)
+        eval_sampler = DistributedSampler(eval_dataset, num_replicas=self.world_size, rank=self.rank)
 
         train_dataloader = DataLoader(train_dataset, batch_size=self.config.batch_size, sampler=train_sampler)
         eval_dataloader = DataLoader(eval_dataset, batch_size=self.config.batch_size, sampler=eval_sampler)
@@ -181,9 +181,9 @@ class TrOCR:
         with torch.no_grad():
             for batch in tqdm(eval_dataloader):
                 # run batch generation
-                outputs = self.model.generate(batch["pixel_values"].to(self.device))
+                outputs = self.model.module.generate(batch["pixel_values"].to(self.device))
                 # compute metrics
-                cer = self.compute_cer(pred_ids=outputs, label_ids=batch["labels"])
+                cer = self.compute_cer(pred_ids=outputs, label_ids=batch["labels"].to(self.device))
                 valid_cer += cer
 
         valid_cer /= len(eval_dataloader)
@@ -225,25 +225,24 @@ class TrOCR:
             logger.info(f"Loss after epoch {epoch}: {train_loss / len(train_dataloader)}")
 
             # evaluate
-            if (epoch + 1) % eval_every != 0:
-                continue
-            valid_cer = self.evaluate(self.model, eval_dataloader)
-            if valid_cer < best_cer:
-                best_cer = valid_cer
-                logger.info(f"New best CER found: {best_cer}")
-                # Only save the model on the main process (rank 0)
+            if (epoch + 1) % eval_every == 0:
+                valid_cer = self.evaluate(self.model, eval_dataloader)
+                if valid_cer < best_cer:
+                    best_cer = valid_cer
+                    logger.info(f"New best CER found: {best_cer}")
+                    # Only save the model on the main process (rank 0)
+                    if self.rank == 0:
+                        logger.info(f"Saving the best model...")
+                        self.model.module.save_pretrained(f"{self.save_dir}/{self.config.model_version}/vision_model/")
+                        self.processor.save_pretrained(f"{self.save_dir}/{self.config.model_version}/processor/")
+                        # save the best model
+
+                # record the best CER, loss and learning rate in csv (only in the main process)
                 if self.rank == 0:
-                    logger.info(f"Saving the best model...")
-                    self.model.module.save_pretrained(f"{self.save_dir}/{self.config.model_version}/vision_model/")
-                    self.processor.save_pretrained(f"{self.save_dir}/{self.config.model_version}/processor/")
-                    # save the best model
+                    with open(f"{self.save_dir}/{self.config.model_version}/metrics.csv", mode='a', newline='') as file:
+                        writer = csv.writer(file)
+                        writer.writerow(["Epoch", "CER", "Loss", "Learning Rate"])
+                        writer.writerow([epoch, best_cer, best_train_loss, learning_rate])
 
-            # record the best CER, loss and learning rate in csv (only in the main process)
-            if self.rank == 0:
-                with open(f"{self.save_dir}/{self.config.model_version}/metrics.csv", mode='w') as file:
-                    writer = csv.writer(file)
-                    writer.writerow(["Epoch", "CER", "Loss", "Learning Rate"])
-                    writer.writerow([epoch, best_cer, best_train_loss, learning_rate])
-
-        logger.info('Finished Training')
-        logger.info(f"Best CER: {best_cer}")
+                        logger.info('Finished Training')
+                        logger.info(f"Best CER: {best_cer}")

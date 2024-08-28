@@ -1,6 +1,8 @@
 import argparse
 import json
 import logging
+import os
+
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
@@ -22,6 +24,9 @@ warnings.filterwarnings("ignore", message=".*We strongly recommend passing in an
 
 
 def main():
+    # Set environment variables for distributed training
+    os.environ['MASTER_ADDR'] = '127.0.0.1'  # or your node's IP address
+    os.environ['MASTER_PORT'] = '12355'  # any open port
     parser = argparse.ArgumentParser(description='Process some integers.')
     parser.add_argument('--generate_dataset', action=argparse.BooleanOptionalAction,
                         help='Generate dataset for training the model')

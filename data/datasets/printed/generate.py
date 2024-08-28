@@ -208,12 +208,6 @@ class GenerateSyntheticPrintedDataset:
             return None, None
 
     def generate_dataset(self, num_images, augment_data=False):
-        """
-        Generate the synthetic printed dataset
-        :param num_images:
-        :param augment_data:
-        :return:
-        """
         try:
             failed = 0
             generated_images = 0
@@ -223,39 +217,38 @@ class GenerateSyntheticPrintedDataset:
             if not os.path.exists(self.target_dir):
                 os.makedirs(self.target_dir)
 
-            file_exists = os.path.isfile(f"{self.target_dir}/image_labels_dataset.csv")
+            # Create an iterable of arguments with img_name properly defined
+            if augment_data:
+                args = [(sentence, img_name, font, augment_data)
+                        for i, (sentence, img_name, font) in enumerate(paired_fonts)]
+            else:
+                args = [(sentence, img_name, font)
+                        for i, (sentence, img_name, font) in enumerate(paired_fonts)]
+
+            results = []
+            with ThreadPoolExecutor(max_workers=cpu_count()) as executor:
+                futures = {executor.submit(self.generate_image_wrapper, arg) for arg in args}
+                for future in tqdm(as_completed(futures), total=len(paired_fonts), desc="Processing images"):
+                    try:
+                        result = future.result()
+                        if result is not None:
+                            results.append(result)
+                            generated_images += 1
+                        if generated_images >= num_images:
+                            break
+                    except Exception as e:
+                        logger.error(f"Error processing result: {e}")
+                        failed += 1
 
             # Open CSV file once for writing
+            file_exists = os.path.isfile(f"{self.target_dir}/image_labels_dataset.csv")
             with open(f"{self.target_dir}/image_labels_dataset.csv",
                       mode='a' if file_exists else 'w', newline='', encoding='utf-8') as file:
                 writer = csv.writer(file)
                 if not file_exists:
                     writer.writerow(["image_path", "label"])
-
-                with Pool(cpu_count()) as pool:
-                    # Create an iterable of arguments with img_name properly defined
-                    if augment_data:
-                        args = [(sentence, img_name, font, augment_data)
-                                for i, (sentence, img_name, font) in enumerate(paired_fonts)]
-                    else:
-                        args = [(sentence, img_name , font)
-                                for i, (sentence, img_name, font) in enumerate(paired_fonts)]
-
-                    # Submit tasks to the pool and process the results as they become available
-                    for result in tqdm(pool.imap_unordered(self.generate_image_wrapper, args), total=len(paired_fonts),
-                                       desc="Processing images"):
-                        try:
-                            font_name, img_name, sentence = result
-                            if font_name is None or sentence is None:
-                                failed += 1
-                                continue
-                            writer.writerow([f"{self.target_dir}/images/{img_name}.jpeg", sentence])
-                            generated_images += 1
-                            if generated_images >= num_images:
-                                break
-                        except Exception as e:
-                            logger.error(f"Error processing result: {e}")
-                            failed += 1
+                for font_name, img_name, sentence in results:
+                    writer.writerow([f"{self.target_dir}/images/{img_name}.jpeg", sentence])
 
             if failed > 0:
                 logger.info(f"Failed to generate {failed} images")

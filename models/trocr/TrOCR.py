@@ -105,8 +105,15 @@ class TrOCR:
             logger.info(f"Using {torch.cuda.device_count()} GPUs")
             model = nn.DataParallel(model)
 
-        model.to(self.device)
+            model.to(self.device)
+            model, processor = self.setup_model_config(processor, model.module)
+        else:
+            model.to(self.device)
+            model, processor = self.setup_model_config(processor, model)
+        self.model = model
+        self.processor = processor
 
+    def setup_model_config(self, processor, model):
         # set special tokens used for creating the decoder_input_ids from the labels
         model.config.decoder_start_token_id = processor.tokenizer.cls_token_id
         model.config.pad_token_id = processor.tokenizer.pad_token_id
@@ -119,8 +126,7 @@ class TrOCR:
         model.config.no_repeat_ngram_size = 3
         model.config.length_penalty = 2.0
         model.config.num_beams = 4
-        self.model = model
-        self.processor = processor
+        return model, processor
 
     def build_model_with_pretrained(self, processor_path, vision_encoder_decoder_model_path, use_fast=False):
         """
@@ -134,19 +140,15 @@ class TrOCR:
         processor = TrOCRProcessor.from_pretrained(processor_path, use_fast=use_fast)
         model = VisionEncoderDecoderModel.from_pretrained(vision_encoder_decoder_model_path)
         model.to(self.device)
-        # set special tokens used for creating the decoder_input_ids from the labels
-        model.config.decoder_start_token_id = processor.tokenizer.cls_token_id
-        model.config.pad_token_id = processor.tokenizer.pad_token_id
-        # make sure vocab size is set correctly
-        model.config.vocab_size = model.config.decoder.vocab_size
-
-        # set beam search parameters
-        model.config.eos_token_id = processor.tokenizer.sep_token_id
-        model.config.max_length = self.config.max_target_length
-        model.config.early_stopping = True
-        model.config.no_repeat_ngram_size = 3
-        model.config.length_penalty = 2.0
-        model.config.num_beams = 4
+        # Check if multiple GPUs are available and wrap the model
+        if torch.cuda.device_count() > 1:
+            logger.info(f"Using {torch.cuda.device_count()} GPUs")
+            model = nn.DataParallel(model)
+            model.to(self.device)
+            model, processor = self.setup_model_config(processor, model.module)
+        else:
+            model.to(self.device)
+            model, processor = self.setup_model_config(processor, model)
         self.model = model
         self.processor = processor
 
@@ -234,7 +236,7 @@ class TrOCR:
                 self.model.save_pretrained(f"{self.save_dir}/{self.config.model_version}/vision_model/")
                 self.processor.save_pretrained(f"{self.save_dir}/{self.config.model_version}/processor/")
                 # save the best model
-                
+
             # record the best CER, loss and learning rate in csv
             # make sure the file is available first
             with open(f"{self.save_dir}/{self.config.model_version}/metrics.csv", mode='w') as file:

@@ -104,21 +104,21 @@ def main():
 
         # Load the dataset
         logger.info("Getting the dataset...")
-        data = CustomLoader(args.dataset_paths)
-        data.generate_dataframe()
+        data_loader = CustomLoader(args.dataset_paths)
+        data_loader.generate_dataframe()
 
         if args.pretrained:
             logger.info("Using pretrained model...")
             mp.spawn(
                 transfer_learning,
-                args=(world_size, config, args.save_dir, args.with_half_data),
+                args=(world_size, config, args.save_dir, data_loader, args.with_half_data),
                 nprocs=world_size,
                 join=True
             )
         elif args.custom:
             mp.spawn(
                 train,
-                args=(world_size, config, args.save_dir),
+                args=(world_size, config, data_loader, args.save_dir),
                 nprocs=world_size,
                 join=True
             )

@@ -1,6 +1,7 @@
 import csv
 from sklearn.model_selection import train_test_split
 import torch
+import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from PIL import Image
 from tqdm import tqdm
@@ -95,9 +96,17 @@ class TrOCR:
             feature_extractor = DeiTImageProcessor.from_pretrained(self.config.encoder)
         else:
             logger.error("Unknown Image processor type")
+            return
         processor = TrOCRProcessor(image_processor=feature_extractor, tokenizer=tokenizer)
         model = VisionEncoderDecoderModel.from_encoder_decoder_pretrained(self.config.encoder, self.config.decoder)
+
+        # Check if multiple GPUs are available and wrap the model
+        if torch.cuda.device_count() > 1:
+            logger.info(f"Using {torch.cuda.device_count()} GPUs")
+            model = nn.DataParallel(model)
+
         model.to(self.device)
+
         # set special tokens used for creating the decoder_input_ids from the labels
         model.config.decoder_start_token_id = processor.tokenizer.cls_token_id
         model.config.pad_token_id = processor.tokenizer.pad_token_id
@@ -233,8 +242,13 @@ class TrOCR:
                 writer.writerow(["Epoch", "CER", "Loss", "Learning Rate"])
                 writer.writerow([epoch, best_cer, best_train_loss, learning_rate])
 
-            logger.info("Saving the model...")
-            self.model.save_pretrained(f"{self.save_dir}/{self.config.model_version}/vision_model/")
+            if isinstance(self.model, nn.DataParallel):
+                logger.info("Saving the model trained in multiple GPU...")
+                self.model.module.save_pretrained(f"{self.save_dir}/{self.config.model_version}/vision_model/")
+            else:
+                logger.info("Saving the model...")
+                self.model.save_pretrained(f"{self.save_dir}/{self.config.model_version}/vision_model/")
+            logger.info("Saving the processor")
             self.processor.save_pretrained(f"{self.save_dir}/{self.config.model_version}/processor/")
 
         logger.info('Finished Training')

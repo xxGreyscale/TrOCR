@@ -107,11 +107,13 @@ class TrOCR:
 
             model.to(self.device)
             model, processor = self.setup_model_config(processor, model.module)
+            self.model = model
+            self.processor = processor
         else:
             model.to(self.device)
             model, processor = self.setup_model_config(processor, model)
-        self.model = model
-        self.processor = processor
+            self.model = model
+            self.processor = processor
 
     def setup_model_config(self, processor, model):
         # set special tokens used for creating the decoder_input_ids from the labels
@@ -139,7 +141,6 @@ class TrOCR:
         """
         processor = TrOCRProcessor.from_pretrained(processor_path, use_fast=use_fast)
         model = VisionEncoderDecoderModel.from_pretrained(vision_encoder_decoder_model_path)
-        model.to(self.device)
         # Check if multiple GPUs are available and wrap the model
         if torch.cuda.device_count() > 1:
             logger.info(f"Using {torch.cuda.device_count()} GPUs")

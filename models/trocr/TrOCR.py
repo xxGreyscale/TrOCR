@@ -1,8 +1,8 @@
 import csv
-from sklearn.model_selection import train_test_split
 import torch
 import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader
+from sklearn.model_selection import train_test_split
+from torch.utils.data import Dataset, DataLoader, DistributedSampler
 from PIL import Image
 from tqdm import tqdm
 from transformers import BertTokenizer, DeiTImageProcessor, ViTImageProcessor, RobertaTokenizer, TrOCRProcessor
@@ -38,11 +38,12 @@ class CustomDataset(Dataset):
 
 
 class TrOCR:
-    def __init__(self, config, save_dir):
+    def __init__(self, config, save_dir, rank):
         self.config = config
         self.save_dir = save_dir
         self.cer_metric = load("cer", trust_remote_code=True)
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device(f"cuda:{rank}")
+        self.rank = rank
         self.model = None
         self.processor = None
 
@@ -73,8 +74,8 @@ class TrOCR:
         # create the datasets
         train_dataset = CustomDataset(train_df, self.processor, self.config.max_target_length)
         eval_dataset = CustomDataset(test_df, self.processor, self.config.max_target_length)
-        print(f"Train dataset: {len(train_dataset)}")
-        print(f"Eval dataset: {len(eval_dataset)}")
+        logger.info(f"Train dataset: {len(train_dataset)}")
+        logger.info(f"Eval dataset: {len(eval_dataset)}")
         return train_dataset, eval_dataset
 
     def build_model(self):
@@ -91,29 +92,24 @@ class TrOCR:
             tokenizer = RobertaTokenizer.from_pretrained(self.config.decoder)
 
         if self.config.image_processor_type == "DeiT":
-            feature_extractor = ViTImageProcessor.from_pretrained(self.config.encoder)
-        elif self.config.image_processor_type == "ViT":
             feature_extractor = DeiTImageProcessor.from_pretrained(self.config.encoder)
+        elif self.config.image_processor_type == "ViT":
+            feature_extractor = ViTImageProcessor.from_pretrained(self.config.encoder)
         else:
             logger.error("Unknown Image processor type")
             return
         processor = TrOCRProcessor(image_processor=feature_extractor, tokenizer=tokenizer)
         model = VisionEncoderDecoderModel.from_encoder_decoder_pretrained(self.config.encoder, self.config.decoder)
 
-        # Check if multiple GPUs are available and wrap the model
-        if torch.cuda.device_count() > 1:
-            logger.info(f"Using {torch.cuda.device_count()} GPUs")
-            model = nn.DataParallel(model)
+        # Move the model to the specified device
+        model.to(self.device)
 
-            model.to(self.device)
-            model, processor = self.setup_model_config(processor, model.module)
-            self.model = model
-            self.processor = processor
-        else:
-            model.to(self.device)
-            model, processor = self.setup_model_config(processor, model)
-            self.model = model
-            self.processor = processor
+        # Wrap the model with DDP
+        model = nn.parallel.DistributedDataParallel(model, device_ids=[self.rank])
+
+        model, processor = self.setup_model_config(processor, model)
+        self.model = model
+        self.processor = processor
 
     def setup_model_config(self, processor, model):
         # set special tokens used for creating the decoder_input_ids from the labels
@@ -141,15 +137,14 @@ class TrOCR:
         """
         processor = TrOCRProcessor.from_pretrained(processor_path, use_fast=use_fast)
         model = VisionEncoderDecoderModel.from_pretrained(vision_encoder_decoder_model_path)
-        # Check if multiple GPUs are available and wrap the model
-        if torch.cuda.device_count() > 1:
-            logger.info(f"Using {torch.cuda.device_count()} GPUs")
-            model = nn.DataParallel(model)
-            model.to(self.device)
-            model, processor = self.setup_model_config(processor, model.module)
-        else:
-            model.to(self.device)
-            model, processor = self.setup_model_config(processor, model)
+
+        # Move the model to the specified device
+        model.to(self.device)
+
+        # Wrap the model with DDP
+        model = nn.parallel.DistributedDataParallel(model, device_ids=[self.rank])
+
+        model, processor = self.setup_model_config(processor, model)
         self.model = model
         self.processor = processor
 
@@ -158,10 +153,14 @@ class TrOCR:
         Set the data loader for training and evaluation
         :param train_dataset:
         :param eval_dataset:
-        :return: None
+        :return: train_dataloader, eval_dataloader
         """
-        train_dataloader = DataLoader(train_dataset, batch_size=self.config.batch_size, shuffle=True)
-        eval_dataloader = DataLoader(eval_dataset, batch_size=self.config.batch_size, shuffle=False)
+        # Use DistributedSampler for distributed training
+        train_sampler = DistributedSampler(train_dataset)
+        eval_sampler = DistributedSampler(eval_dataset)
+
+        train_dataloader = DataLoader(train_dataset, batch_size=self.config.batch_size, sampler=train_sampler)
+        eval_dataloader = DataLoader(eval_dataset, batch_size=self.config.batch_size, sampler=eval_sampler)
         return train_dataloader, eval_dataloader
 
     def summary(self):
@@ -176,7 +175,6 @@ class TrOCR:
         Evaluate the model
         :return: None
         """
-        # evaluate"
         model.to(self.device)
         model.eval()
         valid_cer = 0.0
@@ -233,26 +231,19 @@ class TrOCR:
             if valid_cer < best_cer:
                 best_cer = valid_cer
                 logger.info(f"New best CER found: {best_cer}")
-                logger.info(f"Saving the best model...")
-                self.model.save_pretrained(f"{self.save_dir}/{self.config.model_version}/vision_model/")
-                self.processor.save_pretrained(f"{self.save_dir}/{self.config.model_version}/processor/")
-                # save the best model
+                # Only save the model on the main process (rank 0)
+                if self.rank == 0:
+                    logger.info(f"Saving the best model...")
+                    self.model.module.save_pretrained(f"{self.save_dir}/{self.config.model_version}/vision_model/")
+                    self.processor.save_pretrained(f"{self.save_dir}/{self.config.model_version}/processor/")
+                    # save the best model
 
-            # record the best CER, loss and learning rate in csv
-            # make sure the file is available first
-            with open(f"{self.save_dir}/{self.config.model_version}/metrics.csv", mode='w') as file:
-                writer = csv.writer(file)
-                writer.writerow(["Epoch", "CER", "Loss", "Learning Rate"])
-                writer.writerow([epoch, best_cer, best_train_loss, learning_rate])
-
-            if isinstance(self.model, nn.DataParallel):
-                logger.info("Saving the model trained in multiple GPU...")
-                self.model.module.save_pretrained(f"{self.save_dir}/{self.config.model_version}/vision_model/")
-            else:
-                logger.info("Saving the model...")
-                self.model.save_pretrained(f"{self.save_dir}/{self.config.model_version}/vision_model/")
-            logger.info("Saving the processor")
-            self.processor.save_pretrained(f"{self.save_dir}/{self.config.model_version}/processor/")
+            # record the best CER, loss and learning rate in csv (only in the main process)
+            if self.rank == 0:
+                with open(f"{self.save_dir}/{self.config.model_version}/metrics.csv", mode='w') as file:
+                    writer = csv.writer(file)
+                    writer.writerow(["Epoch", "CER", "Loss", "Learning Rate"])
+                    writer.writerow([epoch, best_cer, best_train_loss, learning_rate])
 
         logger.info('Finished Training')
         logger.info(f"Best CER: {best_cer}")

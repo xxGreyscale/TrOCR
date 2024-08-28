@@ -52,19 +52,19 @@ def main():
 
     def read_json_file(file_path):
         with open(file_path, 'r') as json_file:
-            data = json.load(json_file)
+            _data = json.load(json_file)
         _config = Config(
-            learning_rate=data.get('lr'),
-            epochs=data.get('epochs'),
-            batch_size=data.get('batch_size'),
-            max_target_length=data.get('max_target_length'),
-            model_version=data.get('model_version'),
-            num_epochs=data.get('epochs'),  # Assuming num_epochs is same as epochs
-            decoder=data.get('decoder'),
-            tokenizer_type=data.get('tokenizer_type'),
-            encoder=data.get('encoder'),
-            image_processor_type=data.get('image_processor_type'),
-            eval_frequency=data.get('eval_frequency')  # Evaluate the model every n epochs
+            learning_rate=_data.get('lr'),
+            epochs=_data.get('epochs'),
+            batch_size=_data.get('batch_size'),
+            max_target_length=_data.get('max_target_length'),
+            model_version=_data.get('model_version'),
+            num_epochs=_data.get('epochs'),  # Assuming num_epochs is same as epochs
+            decoder=_data.get('decoder'),
+            tokenizer_type=_data.get('tokenizer_type'),
+            encoder=_data.get('encoder'),
+            image_processor_type=_data.get('image_processor_type'),
+            eval_frequency=_data.get('eval_frequency')  # Evaluate the model every n epochs
         )
         return _config
 
@@ -102,18 +102,23 @@ def main():
         if config.model_version is None:
             raise ValueError("Please specify the model version")
 
+        # Load the dataset
+        logger.info("Getting the dataset...")
+        data = CustomLoader(args.dataset_paths)
+        data.generate_dataframe()
+
         if args.pretrained:
             logger.info("Using pretrained model...")
             mp.spawn(
                 transfer_learning,
-                args=(world_size, config, args.dataset_paths, args.save_dir, args.with_half_data),
+                args=(world_size, config, args.save_dir, args.with_half_data),
                 nprocs=world_size,
                 join=True
             )
         elif args.custom:
             mp.spawn(
                 train,
-                args=(world_size, config, args.dataset_paths, args.save_dir),
+                args=(world_size, config, args.save_dir),
                 nprocs=world_size,
                 join=True
             )
@@ -121,15 +126,10 @@ def main():
             logger.error("Invalid model type. Please specify the model type")
 
 
-def transfer_learning(rank, world_size, config: Config, dataset_paths, save_dir, half_data=False):
+def transfer_learning(rank, world_size, config: Config, data: CustomLoader, save_dir, half_data=False):
     try:
         dist.init_process_group("nccl", rank=rank, world_size=world_size)
         logger.info(f"Rank {rank}: Initializing process group for transfer learning")
-
-        # Load the dataset
-        logger.info("Getting the dataset...")
-        data = CustomLoader(dataset_paths)
-        data.generate_dataframe()
 
         # Create the model
         model = TrOCR(config, save_dir, rank, world_size)
@@ -150,15 +150,10 @@ def transfer_learning(rank, world_size, config: Config, dataset_paths, save_dir,
         dist.destroy_process_group()
 
 
-def train(rank, world_size, config: Config, dataset_paths, save_dir):
+def train(rank, world_size, config: Config, data: CustomLoader, save_dir):
     try:
         dist.init_process_group("nccl", rank=rank, world_size=world_size)
         logger.info(f"Rank {rank}: Initializing process group for training")
-
-        # Load the dataset
-        logger.info("Getting the dataset...")
-        data = CustomLoader(dataset_paths)
-        data.generate_dataframe()
 
         # Create the model
         model = TrOCR(config, save_dir, rank, world_size)

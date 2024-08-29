@@ -111,39 +111,41 @@ def main():
         data_loader = CustomLoader(args.dataset_paths)
         data_loader.generate_dataframe()
 
+        # Initialize wandb in the main process
+        wandb.init(project="OCR-Training", config=config.__dict__)
+
         if args.pretrained:
             logger.info("Using pretrained model...")
-            wandb.init(
-                project="OCR-TrOCR-pretrained",
-                config=config.__dict__,
-            )
             mp.spawn(
                 transfer_learning,
                 args=(world_size, config, args.save_dir, data_loader, args.with_half_data),
                 nprocs=world_size,
                 join=True
             )
-            wandb.finish()
         elif args.custom:
-            wandb.init(
-                project="OCR-TrOCR-pretrained",
-                config=config.__dict__,
-            )
             mp.spawn(
                 train,
                 args=(world_size, config, data_loader, args.save_dir),
                 nprocs=world_size,
                 join=True
             )
-            wandb.finish()
         else:
             logger.error("Invalid model type. Please specify the model type")
+
+        wandb.finish()
 
 
 def transfer_learning(rank, world_size, config: Config, data: CustomLoader, save_dir, half_data=False):
     try:
         dist.init_process_group("nccl", rank=rank, world_size=world_size)
         logger.info(f"Rank {rank}: Initializing process group for transfer learning")
+        # Use a unique run name for each process
+        wandb.init(
+            project="OCR-TrOCR with Pretraining",
+            entity="pre-trained",
+            name=f"run-on-GPU{rank}",
+            config=config.__dict__
+        )
 
         # Create the model
         model = TrOCR(config, save_dir, rank, world_size)
@@ -168,6 +170,13 @@ def train(rank, world_size, config: Config, data: CustomLoader, save_dir):
     try:
         dist.init_process_group("nccl", rank=rank, world_size=world_size)
         logger.info(f"Rank {rank}: Initializing process group for training")
+
+        wandb.init(
+            project=f"OCR-TrOCR-{config.model_version}",
+            entity="custom",
+            name=f"run-on-GPU{rank}",
+            config=config.__dict__
+        )
 
         # Create the model
         model = TrOCR(config, save_dir, rank, world_size)

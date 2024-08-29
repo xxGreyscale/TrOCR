@@ -176,12 +176,19 @@ class TrOCR:
                 optimizer.zero_grad()
 
             train_loss /= len(train_dataloader)
-            wandb.log({"Train Loss": train_loss})  # Log train loss to wandb
-            if self.rank == 0 and train_loss < best_train_loss:
-                best_train_loss = train_loss
-                logger.info(f"New best train loss found: {best_train_loss}")
+            # Synchronize before logging
+            dist.barrier()
+
+            if self.rank == 0:
+                wandb.log({"Train Loss": train_loss})  # Log train loss of aggregate to wandb
+                if train_loss < best_train_loss:
+                    best_train_loss = train_loss
+                    logger.info(f"New best train loss found: {best_train_loss}")
 
             logger.info(f"Loss after epoch {epoch}: {train_loss}")
+
+            # Synchronize after logging
+            dist.barrier()
 
             if (epoch + 1) % eval_every == 0:
                 aggregated_cer = self.evaluate(self.model, eval_dataloader)

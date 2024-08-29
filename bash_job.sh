@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -A Berzelius-2024-46
-#SBATCH --gpus 3
+#SBATCH --gpus 4
 
 #SBATCH -t 01-12:00:00
 #SBATCH --output=htr_training%j.txt

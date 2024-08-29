@@ -50,89 +50,28 @@ class TrOCR:
         self.processor = None
 
     def compute_cer(self, pred_ids, label_ids):
-        """
-        Compute the Character Error Rate
-        :param pred_ids:
-        :param label_ids:
-        :return: float value of the CER
-        """
         pred_str = self.processor.batch_decode(pred_ids, skip_special_tokens=True)
         label_ids[label_ids == -100] = self.processor.tokenizer.pad_token_id
         label_str = self.processor.batch_decode(label_ids, skip_special_tokens=True)
-        _cer = self.cer_metric.compute(predictions=pred_str, references=label_str)
-        return _cer
+        cer = self.cer_metric.compute(predictions=pred_str, references=label_str)
+        return cer
+
+    def average_across_gpus(self, tensor):
+        """
+        Average a tensor across all GPUs.
+        """
+        dist.reduce(tensor, dst=0, op=dist.ReduceOp.SUM)
+        if self.rank == 0:
+            tensor /= dist.get_world_size()
+        return tensor
 
     def prepare_dataset(self, dataframe):
-        """
-        Prepare the dataset for training
-        :param dataframe:
-        :return: train_dataset and eval_dataset
-        """
-        # split the data
         train_df, test_df = train_test_split(dataframe, test_size=0.2)
-        # reset the indices to start from zero
         train_df.reset_index(drop=True, inplace=True)
         test_df.reset_index(drop=True, inplace=True)
-        # create the datasets
         train_dataset = CustomDataset(train_df, self.processor, self.config.max_target_length)
         eval_dataset = CustomDataset(test_df, self.processor, self.config.max_target_length)
-        logger.info(f"Train dataset: {len(train_dataset)}")
-        logger.info(f"Eval dataset: {len(eval_dataset)}")
         return train_dataset, eval_dataset
-
-    def build_model_with_pretrained(self, processor_path, vision_encoder_decoder_model_path, use_fast=False):
-        """
-        Build the model with a pre-trained model
-        Technically, this is used for fine-tuning. And the model path is the same with the processor path
-        :param vision_encoder_decoder_model_path:
-        :param processor_path:
-        :param use_fast:
-        :return: nothing
-        """
-        processor = TrOCRProcessor.from_pretrained(processor_path, use_fast=use_fast)
-        model = VisionEncoderDecoderModel.from_pretrained(vision_encoder_decoder_model_path)
-        # Move the model to the specified device
-        model.to(self.device)
-
-        # Wrap the model with DDP
-        model = nn.parallel.DistributedDataParallel(model, device_ids=[self.rank])
-        model, processor = self.setup_model_config(processor, model)
-
-        self.model = model
-        self.processor = processor
-
-    def build_model(self):
-        """
-        Build the model within the instance
-        with the specified configuration
-        encoder: for feature extraction
-        decoder: for text generation, e.g. BERT or RoBERTa
-        tokenizer_type: type of tokenizer to use, e.g. BERT or RoBERTa
-        """
-        if self.config.tokenizer_type == "BERT":
-            tokenizer = BertTokenizer.from_pretrained(self.config.decoder)
-        else:
-            tokenizer = RobertaTokenizer.from_pretrained(self.config.decoder)
-
-        if self.config.image_processor_type == "DeiT":
-            feature_extractor = DeiTImageProcessor.from_pretrained(self.config.encoder)
-        elif self.config.image_processor_type == "ViT":
-            feature_extractor = ViTImageProcessor.from_pretrained(self.config.encoder)
-        else:
-            logger.error("Unknown Image processor type")
-            return
-        processor = TrOCRProcessor(image_processor=feature_extractor, tokenizer=tokenizer)
-        model = VisionEncoderDecoderModel.from_encoder_decoder_pretrained(self.config.encoder, self.config.decoder)
-
-        # Move the model to the specified device
-        model.to(self.device)
-
-        # Wrap the model with DDP
-        model = nn.parallel.DistributedDataParallel(model, device_ids=[self.rank])
-
-        model, processor = self.setup_model_config(processor, model.module)
-        self.model = model
-        self.processor = processor
 
     def setup_model_config(self, processor, model):
         # set special tokens used for creating the decoder_input_ids from the labels
@@ -149,106 +88,106 @@ class TrOCR:
         model.config.num_beams = 4
         return model, processor
 
+    def build_model_with_pretrained(self, processor_path, vision_encoder_decoder_model_path, use_fast=False):
+        processor = TrOCRProcessor.from_pretrained(processor_path, use_fast=use_fast)
+        model = VisionEncoderDecoderModel.from_pretrained(vision_encoder_decoder_model_path)
+        model.to(self.device)
+        model = nn.parallel.DistributedDataParallel(model, device_ids=[self.rank])
+        self.model, self.processor = self.setup_model_config(processor, model)
+
+    def build_model(self):
+        if self.config.tokenizer_type == "BERT":
+            tokenizer = BertTokenizer.from_pretrained(self.config.decoder)
+        else:
+            tokenizer = RobertaTokenizer.from_pretrained(self.config.decoder)
+
+        if self.config.image_processor_type == "DeiT":
+            feature_extractor = DeiTImageProcessor.from_pretrained(self.config.encoder)
+        elif self.config.image_processor_type == "ViT":
+            feature_extractor = ViTImageProcessor.from_pretrained(self.config.encoder)
+        else:
+            logger.error("Unknown Image processor type")
+            return
+        processor = TrOCRProcessor(image_processor=feature_extractor, tokenizer=tokenizer)
+        model = VisionEncoderDecoderModel.from_encoder_decoder_pretrained(self.config.encoder, self.config.decoder)
+        model.to(self.device)
+        model = nn.parallel.DistributedDataParallel(model, device_ids=[self.rank])
+        self.model, self.processor = self.setup_model_config(processor, model.module)
+
     def set_data_loader(self, train_dataset, eval_dataset):
-        """
-        Set the data loader for training and evaluation
-        :param train_dataset:
-        :param eval_dataset:
-        :return: train_dataloader, eval_dataloader
-        """
-        # Use DistributedSampler for distributed training
         train_sampler = DistributedSampler(train_dataset, num_replicas=self.world_size, rank=self.rank)
         eval_sampler = DistributedSampler(eval_dataset, num_replicas=self.world_size, rank=self.rank)
-
         train_dataloader = DataLoader(train_dataset, batch_size=self.config.batch_size, sampler=train_sampler)
         eval_dataloader = DataLoader(eval_dataset, batch_size=self.config.batch_size, sampler=eval_sampler)
         return train_dataloader, eval_dataloader
 
-    def summary(self):
-        """
-        Print the model summary
-        :return: None
-        """
-        print(self.model)
-
     def evaluate(self, model, eval_dataloader):
-        """
-        Evaluate the model
-        :return: None
-        """
         model.to(self.device)
         model.eval()
-        valid_cer = 0.0
+        total_cer = 0.0
+        total_samples = 0
+
         with torch.no_grad():
             for batch in tqdm(eval_dataloader):
-                # run batch generation
                 outputs = self.model.module.generate(batch["pixel_values"].to(self.device))
-                # compute metrics
                 cer = self.compute_cer(pred_ids=outputs, label_ids=batch["labels"].to(self.device))
-                valid_cer += cer
+                batch_size = batch["pixel_values"].size(0)
+                total_cer += cer * batch_size
+                total_samples += batch_size
 
-        valid_cer /= len(eval_dataloader)
-        logger.info(f"Validation CER: {valid_cer}")
-        logger.info(f"learning rate: {self.config.learning_rate}")
-        return valid_cer
+        total_cer_tensor = torch.tensor(total_cer, device=self.device)
+        total_samples_tensor = torch.tensor(total_samples, device=self.device)
 
-    @staticmethod
-    def average_gradients(loss):
-        dist.reduce(loss, dst=0, op=dist.ReduceOp.SUM)  # Sum the loss across all processes
-        if dist.get_rank() == 0:  # Only rank 0 will have the sum, so we average it
-            loss /= dist.get_world_size()  # Divide by the number of processes to get the average
-        return loss
+        dist.reduce(total_cer_tensor, dst=0, op=dist.ReduceOp.SUM)
+        dist.reduce(total_samples_tensor, dst=0, op=dist.ReduceOp.SUM)
+
+        if self.rank == 0:
+            aggregated_cer = total_cer_tensor.item() / total_samples_tensor.item()
+            logger.info(f"Validation CER: {aggregated_cer}")
+            return aggregated_cer
+        else:
+            return None
 
     def train(self, train_dataloader, eval_dataloader, eval_every=1):
-        """
-        Train the model with the specified configuration
-        eval_every: evaluate the model every n epochs
-        :return: None
-        """
-        best_cer = float('inf')  # start with a high CER
+        best_cer = float('inf')
         learning_rate = self.config.learning_rate
-        best_train_loss = float('inf')  # start with a high loss
+        best_train_loss = float('inf')
 
         optimizer = torch.optim.AdamW(self.model.parameters(), lr=learning_rate)
         for epoch in range(self.config.num_epochs):
-            # train
             self.model.train()
             train_loss = 0.0
             for batch in tqdm(train_dataloader, desc=f"Epoch: {epoch}", leave=True):
-                # get the inputs
                 for k, v in batch.items():
                     batch[k] = v.to(self.device)
 
-                # forward + backward + optimize
                 outputs = self.model(**batch)
                 loss = outputs.loss
                 loss.backward()
 
-                # Average the loss across all GPUs
-                train_loss += self.average_gradients(loss).item()
+                # Sum loss across GPUs for reporting
+                avg_loss_tensor = torch.tensor(loss.item(), device=self.device)
+                avg_loss_tensor = self.average_across_gpus(avg_loss_tensor)
+                train_loss += avg_loss_tensor.item()
 
                 optimizer.step()
                 optimizer.zero_grad()
 
-            if train_loss < best_train_loss:
+            train_loss /= len(train_dataloader)
+            if self.rank == 0 and train_loss < best_train_loss:
                 best_train_loss = train_loss
-                logger.info(f"New best train loss found: {best_train_loss / len(train_dataloader)}")
-            logger.info(f"Loss after epoch {epoch}: {train_loss / len(train_dataloader)}")
+                logger.info(f"New best train loss found: {best_train_loss}")
 
-            # evaluate
+            logger.info(f"Loss after epoch {epoch}: {train_loss}")
+
             if (epoch + 1) % eval_every == 0:
-                valid_cer = self.evaluate(self.model, eval_dataloader)
-                if valid_cer < best_cer:
-                    best_cer = valid_cer
+                aggregated_cer = self.evaluate(self.model, eval_dataloader)
+                if self.rank == 0 and aggregated_cer is not None and aggregated_cer < best_cer:
+                    best_cer = aggregated_cer
                     logger.info(f"New best CER found: {best_cer}")
-                    # Only save the model on the main process (rank 0)
-                    if self.rank == 0:
-                        logger.info(f"Saving the best model...")
-                        self.model.module.save_pretrained(f"{self.save_dir}/{self.config.model_version}/vision_model/")
-                        self.processor.save_pretrained(f"{self.save_dir}/{self.config.model_version}/processor/")
-                        # save the best model
+                    self.model.module.save_pretrained(f"{self.save_dir}/{self.config.model_version}/vision_model/")
+                    self.processor.save_pretrained(f"{self.save_dir}/{self.config.model_version}/processor/")
 
-                # record the best CER, loss and learning rate in csv (only in the main process)
                 if self.rank == 0:
                     with open(f"{self.save_dir}/{self.config.model_version}/metrics.csv", mode='a', newline='') as file:
                         writer = csv.writer(file)

@@ -17,6 +17,7 @@ transcribed_data/*
 
 # ignore wandb files
 wandb/
+logs/
 
 raw/*
 .git/

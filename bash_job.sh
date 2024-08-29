@@ -3,7 +3,7 @@
 #SBATCH --gpus 4
 
 #SBATCH -t 01-12:00:00
-#SBATCH --output=logs/htr_training%j.txt
+#SBATCH --output=logs/htr_training%j.text
 #SBATCH --mail-type=BEGIN,END,FAIL
 #SBATCH --mail-user=salum.nassor.2008@student.uu.se
 

@@ -8,6 +8,8 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 import warnings
 
+import wandb
+
 from data.datasets.handwritten.generate_dataset import GenerateDemoktatiLabourerDataset
 from data.datasets.printed.generate import GenerateSyntheticPrintedDataset
 from data.loader.custom_loader import CustomLoader
@@ -27,6 +29,8 @@ def main():
     # Set environment variables for distributed training
     os.environ['MASTER_ADDR'] = '127.0.0.1'  # or your node's IP address
     os.environ['MASTER_PORT'] = '12355'  # any open port
+    os.environ["WANDB_API_KEY"] = "your-api-key"
+
     parser = argparse.ArgumentParser(description='Process some integers.')
     parser.add_argument('--generate_dataset', action=argparse.BooleanOptionalAction,
                         help='Generate dataset for training the model')
@@ -109,19 +113,29 @@ def main():
 
         if args.pretrained:
             logger.info("Using pretrained model...")
+            wandb.init(
+                project="OCR-TrOCR-pretrained",
+                config=config.__dict__,
+            )
             mp.spawn(
                 transfer_learning,
                 args=(world_size, config, args.save_dir, data_loader, args.with_half_data),
                 nprocs=world_size,
                 join=True
             )
+            wandb.finish()
         elif args.custom:
+            wandb.init(
+                project="OCR-TrOCR-pretrained",
+                config=config.__dict__,
+            )
             mp.spawn(
                 train,
                 args=(world_size, config, data_loader, args.save_dir),
                 nprocs=world_size,
                 join=True
             )
+            wandb.finish()
         else:
             logger.error("Invalid model type. Please specify the model type")
 

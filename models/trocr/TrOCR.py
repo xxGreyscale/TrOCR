@@ -1,6 +1,7 @@
 import csv
 import torch
 import torch.nn as nn
+import wandb
 from sklearn.model_selection import train_test_split
 from torch.utils.data import Dataset, DataLoader, DistributedSampler
 from PIL import Image
@@ -144,6 +145,7 @@ class TrOCR:
         if self.rank == 0:
             aggregated_cer = total_cer_tensor.item() / total_samples_tensor.item()
             logger.info(f"Validation CER: {aggregated_cer}")
+            wandb.log({"Validation CER": aggregated_cer})
             return aggregated_cer
         else:
             return None
@@ -174,6 +176,7 @@ class TrOCR:
                 optimizer.zero_grad()
 
             train_loss /= len(train_dataloader)
+            wandb.log({"Train Loss": train_loss})  # Log train loss to wandb
             if self.rank == 0 and train_loss < best_train_loss:
                 best_train_loss = train_loss
                 logger.info(f"New best train loss found: {best_train_loss}")

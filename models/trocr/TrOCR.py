@@ -175,7 +175,7 @@ class TrOCR:
 
             train_loss /= len(train_dataloader)
             # Synchronize before logging
-            # dist.barrier()
+            dist.barrier()
 
             if self.rank == 0:
                 if train_loss < best_train_loss:
@@ -185,7 +185,7 @@ class TrOCR:
             logger.info(f"Loss after epoch {epoch}: {train_loss}")
 
             # # Synchronize after logging
-            # dist.barrier()
+            dist.barrier()
 
             if (epoch + 1) % eval_every == 0:
                 aggregated_cer = self.evaluate(self.model, eval_dataloader)

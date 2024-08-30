@@ -7,8 +7,8 @@ def correct_paths(input_file, output_file):
     df = pd.read_csv(input_file)
 
     # Replace incorrect path separators
-    df['image_path'] = df['file_name'].str.replace(r'\\+', '/', regex=True)
-    df['image_path'] = df['file_name'].str.replace(r'\\', '/', regex=True)   # Handles \
+    df['image_path'] = df['image_path'].str.replace(r'\\+', '/', regex=True)
+    df['image_path'] = df['image_path'].str.replace(r'\\', '/', regex=True)   # Handles \
 
     # Save the corrected DataFrame back to the CSV
     df.to_csv(output_file, index=False)

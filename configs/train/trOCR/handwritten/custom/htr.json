@@ -1,6 +1,6 @@
 {
     "lr": 6.5e-5,
-    "epochs": 15,
+    "epochs": 24,
     "eval_frequency": 2,
     "batch_size": 64,
     "max_target_length": 108,

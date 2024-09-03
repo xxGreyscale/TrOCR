@@ -3,7 +3,7 @@
 #SBATCH --gpus 1
 #SBATCH -C "fat"
 
-#SBATCH -t 01-12:00:00
+#SBATCH -t 02-12:00:00
 #SBATCH --output=logs/htr_w_ms_base_pretrained_training%j.text
 #SBATCH --mail-type=BEGIN,END,FAIL
 #SBATCH --mail-user=salum.nassor.2008@student.uu.se

@@ -2,7 +2,7 @@
     "lr": 6.5e-5,
     "epochs": 24,
     "eval_frequency": 2,
-    "batch_size": 64,
+    "batch_size": 128,
     "max_target_length": 108,
     "image_processor_type": "ViT",
     "encoder": "google/vit-base-patch16-224-in21k",

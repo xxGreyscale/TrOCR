@@ -61,7 +61,9 @@ def main():
             tokenizer_type=data.get('tokenizer_type'),
             encoder=data.get('encoder'),
             image_processor_type=data.get('image_processor_type'),
-            eval_frequency=data.get('eval_frequency') # Evaluate the model every n epochs
+            eval_frequency=data.get('eval_frequency'), # Evaluate the model every n epochs
+            processor=data.get('processor'),
+            vision_encoder_decoder_model=data.get('vision_encoder_decoder_model')
         )
         return _config
 

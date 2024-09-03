@@ -9,4 +9,4 @@
 
 cd /proj/berzelius-2024-46/users/x_salom/TrOCR
 conda activate ocr
-python main.py --train --custom --dataset_paths ../datasets/handwritten/augmented_v2/image_labels_dataset.csv ../datasets/handwritten/normall/image_labels_dataset.csv --save_dir ../custom_models/trocr-handwritten/small --train_config_path ../configs/train/trOCR/handwritten/custom/htr.json
+python main.py --train --custom --dataset_paths datasets/handwritten/augmented_v2/image_labels_dataset.csv datasets/handwritten/normall/image_labels_dataset.csv --save_dir custom_models/trocr-handwritten/small --train_config_path configs/train/trOCR/handwritten/custom/htr.json

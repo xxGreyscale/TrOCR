@@ -43,6 +43,7 @@ class TrOCR:
         self.config = config
         self.save_dir = save_dir
         self.cer_metric = load("cer", trust_remote_code=True)
+        logger.info(f"GPU available: {torch.cuda.is_available()}. Now Using device: {torch.cuda.get_device_name(0)}")
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = None
         self.processor = None

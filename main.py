@@ -2,7 +2,7 @@ import argparse
 import json
 import logging
 
-# import wandb
+import wandb
 
 from data.datasets.handwritten.generate_dataset import GenerateDemoktatiLabourerDataset
 from data.datasets.printed.generate import GenerateSyntheticPrintedDataset
@@ -90,7 +90,7 @@ def main():
             logger.info("Invalid dataset type. Please specify the dataset type")
 
     if args.train:
-        # wandb.login(key="MY_KEY")
+        wandb.login(key="MY_KEY")
         config = read_json_file(args.train_config_path)
         if args.dataset_paths is None:
             raise ValueError("Please specify the dataset path")

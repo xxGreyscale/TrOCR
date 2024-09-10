@@ -63,14 +63,13 @@ def main():
             image_processor_type=data.get('image_processor_type'),
             eval_frequency=data.get('eval_frequency'), # Evaluate the model every n epochs
             processor=data.get('processor'),
-            vision_encoder_decoder_model=data.get('vision_encoder_decoder_model')
+            vision_encoder_decoder_model=data.get('vision_encoder_decoder_model'),
+            log_dir=data.get('log_dir')
         )
         return _config
 
-    # Usage
-
     args = parser.parse_args()
-    config = read_json_file(args.train_config_path)
+
     if args.generate_dataset:
         if args.htr:
             try:
@@ -88,6 +87,7 @@ def main():
             logger.info("Invalid dataset type. Please specify the dataset type")
 
     if args.train:
+        config = read_json_file(args.train_config_path)
         if args.dataset_paths is None:
             raise ValueError("Please specify the dataset path")
         if config.learning_rate is None:

@@ -8,6 +8,6 @@
     "encoder": "google/vit-base-patch16-224-in21k",
     "tokenizer_type": "BERT",
     "decoder": "KBLab/bert-base-swedish-cased",
-    "log_dir": "/home/x_salom/wandb",
+    "log_dir": "/home/x_salom/",
     "model_version": 1.0
 }

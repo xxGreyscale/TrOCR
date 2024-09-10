@@ -6,6 +6,6 @@
     "max_target_length": 108,
     "vision_encoder_decoder_model": "microsoft/trocr-base-handwritten",
     "processor": "microsoft/trocr-base-handwritten",
-    "log_dir": "/home/x_salom/wandb",
+    "log_dir": "/home/x_salom/",
     "model_version": 1.0
 }

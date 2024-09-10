@@ -231,7 +231,7 @@ class TrOCR:
             logger.info(f"Loss after epoch {epoch}: {train_loss / len(train_dataloader)}")
 
             # Log training loss to wandb
-            wandb.log({"train_loss": train_loss / len(train_dataloader), "epoch": epoch})
+            # wandb.log({"train_loss": train_loss / len(train_dataloader), "epoch": epoch})
 
             # evaluate
             if (epoch + 1) % eval_every != 0:
@@ -239,14 +239,13 @@ class TrOCR:
             valid_cer = self.evaluate(self.model, eval_dataloader)
             if valid_cer < best_cer:
                 best_cer = valid_cer
+                # Log validation CER to wandb
+                wandb.log({"valid_cer": valid_cer, "epoch": epoch})
                 logger.info(f"New best CER found: {best_cer}")
                 logger.info(f"Saving the best model...")
                 self.model.save_pretrained(f"{self.save_dir}/{self.config.model_version}/vision_model/")
                 self.processor.save_pretrained(f"{self.save_dir}/{self.config.model_version}/processor/")
                 # save the best model
-
-            # Log validation CER to wandb
-            wandb.log({"valid_cer": valid_cer, "epoch": epoch})
 
             # record the best CER, loss and learning rate in csv
             # make sure the file is available first

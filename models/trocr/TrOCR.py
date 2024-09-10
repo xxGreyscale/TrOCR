@@ -1,4 +1,6 @@
 import csv
+
+import wandb
 from sklearn.model_selection import train_test_split
 import torch
 import torch.nn as nn
@@ -199,6 +201,8 @@ class TrOCR:
         eval_every: evaluate the model every n epochs
         :return: None
         """
+
+        wandb.init(project="tr-ocr", config=self.config.__dict__, dir=self.config.log_dir)
         best_cer = float('inf')  # start with a high CER
         learning_rate = self.config.learning_rate
         best_train_loss = float('inf')  # start with a high loss
@@ -226,6 +230,9 @@ class TrOCR:
                 logger.info(f"New best train loss found: {best_train_loss / len(train_dataloader)}")
             logger.info(f"Loss after epoch {epoch}: {train_loss / len(train_dataloader)}")
 
+            # Log training loss to wandb
+            wandb.log({"train_loss": train_loss / len(train_dataloader), "epoch": epoch})
+
             # evaluate
             if (epoch + 1) % eval_every != 0:
                 continue
@@ -237,6 +244,9 @@ class TrOCR:
                 self.model.save_pretrained(f"{self.save_dir}/{self.config.model_version}/vision_model/")
                 self.processor.save_pretrained(f"{self.save_dir}/{self.config.model_version}/processor/")
                 # save the best model
+
+            # Log validation CER to wandb
+            wandb.log({"valid_cer": valid_cer, "epoch": epoch})
 
             # record the best CER, loss and learning rate in csv
             # make sure the file is available first
@@ -256,3 +266,4 @@ class TrOCR:
 
         logger.info('Finished Training')
         logger.info(f"Best CER: {best_cer}")
+        wandb.finish()

@@ -90,7 +90,7 @@ def main():
             logger.info("Invalid dataset type. Please specify the dataset type")
 
     if args.train:
-        wandb.login(key="d53f42499c58edd6df5890685855e6c3a7180dc6")
+        wandb.login(key="MY_KEY")
         config = read_json_file(args.train_config_path)
         if args.dataset_paths is None:
             raise ValueError("Please specify the dataset path")

@@ -1,5 +1,5 @@
 {
-    "lr": 6.5e-5,
+    "lr": 5e-5,
     "epochs": 20,
     "eval_frequency": 10,
     "batch_size": 64,

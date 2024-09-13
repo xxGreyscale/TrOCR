@@ -1,5 +1,4 @@
 import csv
-import functools
 import logging
 import os
 import wikipedia
@@ -14,7 +13,7 @@ from data.preprocessing.augmentation.transforms import CustomTransformation
 from PIL import ImageOps
 import time
 from requests.exceptions import ConnectTimeout
-from multiprocessing import Pool, cpu_count
+from multiprocessing import cpu_count
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from utils.logger import setup_logger
@@ -28,7 +27,7 @@ API_KEY = "AIzaSyBb9yWCtp_L2sKJ-_qBEDeEZdGrZ4odvgA"
 class GenerateSyntheticPrintedDataset:
     def __init__(self, pages=None, target_dir=None):
         """
-        Generate a synthetic.json printed dataset
+        Generate a synthetic_beta.json printed dataset
         :param pages: Number of pages to get sentences from
         :param target_dir: Directory to save the dataset
         """

@@ -8,6 +8,7 @@ from data.datasets.handwritten.generate_dataset import GenerateDemoktatiLabourer
 from data.datasets.printed.generate import GenerateSyntheticPrintedDataset
 from data.loader.custom_loader import CustomLoader
 from models.trocr.TrOCR import TrOCR
+from utils.DatasetGenerationConfig import DatasetGenerationConfig
 from utils.config import Config
 import warnings
 
@@ -32,8 +33,6 @@ def main():
                         help='Generate dataset for training the model')
     parser.add_argument('--train', action=argparse.BooleanOptionalAction,
                         help='Train the model')
-    parser.add_argument('--augment_data', action=argparse.BooleanOptionalAction,
-                        help='Generate augmented dataset for training the model')
     parser.add_argument('--htr', action=argparse.BooleanOptionalAction,
                         help='Generate handwritten dataset for training HTR model')
     parser.add_argument('--printed', action=argparse.BooleanOptionalAction,
@@ -42,56 +41,31 @@ def main():
                         help='Train a model with pretrained weights, specify the model')
     parser.add_argument('--files_path', nargs="+", help='Path to XML and images files')
     parser.add_argument('--save_dir', type=str, help='Directory to save the dataset')
-    parser.add_argument('--lang', type=str, help='Language to use')
-    parser.add_argument('--num_images', type=int, help='Number of images to generate')
     parser.add_argument('--custom', action=argparse.BooleanOptionalAction, help='Model type')
     parser.add_argument('--dataset_paths', nargs="+", help='Path to the dataset')
     parser.add_argument('--with_half_data', action=argparse.BooleanOptionalAction,
                         help='Get the first half of the dataset')
-    parser.add_argument('--train_config_path', type=str, help='Path to the training configuration file')
-
-    def read_json_file(file_path):
-        with open(file_path, 'r') as json_file:
-            data = json.load(json_file)
-        _config = Config(
-            learning_rate=data.get('lr'),
-            epochs=data.get('epochs'),
-            batch_size=data.get('batch_size'),
-            max_target_length=data.get('max_target_length'),
-            model_version=data.get('model_version'),
-            num_epochs=data.get('epochs'),  # Assuming num_epochs is same as epochs
-            decoder=data.get('decoder'),
-            tokenizer_type=data.get('tokenizer_type'),
-            encoder=data.get('encoder'),
-            image_processor_type=data.get('image_processor_type'),
-            eval_frequency=data.get('eval_frequency'), # Evaluate the model every n epochs
-            processor=data.get('processor'),
-            vision_encoder_decoder_model=data.get('vision_encoder_decoder_model'),
-            log_dir=data.get('log_dir')
-        )
-        return _config
+    parser.add_argument('--config_path', type=str, help='Path to the training/dataset configuration file')
 
     args = parser.parse_args()
 
     if args.generate_dataset:
+        dataset_gc = DatasetGenerationConfig.from_json(args.config_path)
         if args.htr:
             try:
                 generator = GenerateDemoktatiLabourerDataset()
-                generator.generate_dataset(args.files_path, args.save_dir, augment_data=args.augment_data)
+                generator.generate_dataset(dataset_gc.files_path, args.save_dir, augment_data=dataset_gc.augment_data)
             except Exception as e:
                 logger.info(f"Error generating dataset: {e}")
         elif args.printed:
-            pages = ["Facebook", "Liverpool FC", "Kungliga Tekniska högskolan", "Malmö FF",
-                     "Twitter", "Students' IP", "Uppsala", "Eleda Stadion", "Youtube", "Chelsea FC",
-                     "Uppsala universitet", "IK Sirius FK", "Google", "Svenska", "Hjärtdjur", "Storängen"]
-            generator = GenerateSyntheticPrintedDataset(pages=pages, target_dir=args.save_dir)
-            generator.generate_dataset(args.num_images, augment_data=args.augment_data)
+            generator = GenerateSyntheticPrintedDataset(pages=dataset_gc.pages, target_dir=args.save_dir)
+            generator.generate_dataset(dataset_gc.num_images, augment_data=dataset_gc.augment_data)
         else:
             logger.info("Invalid dataset type. Please specify the dataset type")
 
     if args.train:
         wandb.login(key="MY_KEY")
-        config = read_json_file(args.train_config_path)
+        config = Config.from_json(args.config_path)
         if args.dataset_paths is None:
             raise ValueError("Please specify the dataset path")
         if config.learning_rate is None:

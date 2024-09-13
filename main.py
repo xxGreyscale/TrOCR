@@ -1,5 +1,4 @@
 import argparse
-import json
 import logging
 
 import wandb
@@ -50,6 +49,8 @@ def main():
     args = parser.parse_args()
 
     if args.generate_dataset:
+        if args.config_path is None:
+            raise ValueError("Please specify the config path")
         dataset_gc = DatasetGenerationConfig.from_json(args.config_path)
         if args.htr:
             try:

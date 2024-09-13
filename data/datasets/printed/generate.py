@@ -28,7 +28,7 @@ API_KEY = "AIzaSyBb9yWCtp_L2sKJ-_qBEDeEZdGrZ4odvgA"
 class GenerateSyntheticPrintedDataset:
     def __init__(self, pages=None, target_dir=None):
         """
-        Generate a synthetic printed dataset
+        Generate a synthetic.json printed dataset
         :param pages: Number of pages to get sentences from
         :param target_dir: Directory to save the dataset
         """
@@ -91,28 +91,43 @@ class GenerateSyntheticPrintedDataset:
         self.pages = pages
         sentences = []
 
-        def fetch_sentences(page_name):
-            try:
-                __sentences = [sentence for sentence in
-                               GenerateSyntheticPrintedDataset.get_sentences_with_retry(page_name)
-                               if len(sentence) < 110]
-                return __sentences
-            except Exception as _e:
-                time.sleep(.5)
-
-        with ThreadPoolExecutor(max_workers=cpu_count()) as executor:
-            future_to_page = {executor.submit(fetch_sentences, page_name): page_name for page_name in pages}
-            for future in as_completed(future_to_page):
-                page_name = future_to_page[future]
+        # check if .csv file exists
+        if os.path.exists(f"{self.target_dir}/sentences.csv"):
+            with open(f"{self.target_dir}/sentences.csv", mode='r', encoding='utf-8') as file:
+                reader = csv.reader(file)
+                next(reader)
+                for row in reader:
+                    sentences.append(row[0])
+            return sentences
+        else:
+            def fetch_sentences(page_name):
                 try:
-                    _sentences = future.result()
-                    sentences += _sentences
-                except Exception as e:
-                    logger.log(msg=f"Error: Failed to get sentences from {page_name} with error: {e}",
-                               level=logging.ERROR)
+                    __sentences = [sentence for sentence in
+                                   GenerateSyntheticPrintedDataset.get_sentences_with_retry(page_name)
+                                   if len(sentence) < 110]
+                    return __sentences
+                except Exception as _e:
+                    time.sleep(.5)
 
-        logger.info(f"Total sentences: {len(sentences)}")
-        return sentences
+            with ThreadPoolExecutor(max_workers=cpu_count()) as executor:
+                future_to_page = {executor.submit(fetch_sentences, page_name): page_name for page_name in pages}
+                for future in as_completed(future_to_page):
+                    page_name = future_to_page[future]
+                    try:
+                        _sentences = future.result()
+                        sentences += _sentences
+                    except Exception as e:
+                        logger.log(msg=f"Error: Failed to get sentences from {page_name} with error: {e}",
+                                   level=logging.ERROR)
+
+            logger.info(f"Total sentences: {len(sentences)}")
+            # save sentences to a .csv file
+            with open(f"{self.target_dir}/sentences.csv", mode='w', newline='', encoding='utf-8') as file:
+                writer = csv.writer(file)
+                writer.writerow(["sentence"])
+                for sentence in sentences:
+                    writer.writerow([sentence])
+            return sentences
 
     def pair_fonts_with_sentences(self):
         """

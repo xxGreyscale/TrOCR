@@ -121,9 +121,18 @@ class GenerateSyntheticPrintedDataset:
 
             logger.info(f"Total sentences: {len(sentences)}")
             # save sentences to a .csv file
-            with open(f"{self.target_dir}/sentences.csv", mode='w', newline='', encoding='utf-8') as file:
+            # Check if the file exists
+            # Ensure the target directory exists
+            os.makedirs(self.target_dir, exist_ok=True)
+
+            file_exists = os.path.isfile(f"{self.target_dir}/sentences.csv")
+            with open(f"{self.target_dir}/sentences.csv", mode='a' if file_exists else 'w', newline='', encoding='utf-8') as file:
                 writer = csv.writer(file)
-                writer.writerow(["sentence"])
+                # Write the header row if the file is being created
+                if not file_exists:
+                    writer.writerow(["sentence"])
+
+                # Write the sentences
                 for sentence in sentences:
                     writer.writerow([sentence])
             return sentences
@@ -262,7 +271,7 @@ class GenerateSyntheticPrintedDataset:
                 if not file_exists:
                     writer.writerow(["image_path", "label"])
                 for font_name, img_name, sentence in results:
-                    writer.writerow([f"{self.target_dir}/images/{img_name}.jpeg", sentence])
+                    writer.writerow([f"images/{img_name}.jpeg", sentence])
 
             if failed > 0:
                 logger.info(f"Failed to generate {failed} images")

@@ -3,8 +3,10 @@
   "lang": "se",
   "num_images": 500000,
   "pages": [
-    "Facebook", "Liverpool FC", "Kungliga Tekniska högskolan", "Malmö FF",
-    "Twitter", "Students' IP", "Uppsala", "Eleda Stadion", "Youtube", "Chelsea FC",
-    "Uppsala universitet", "IK Sirius FK", "Google", "Svenska", "Hjärtdjur", "Storängen"
-  ]
+    "Sveriges historia", "Arsenal", "Telegram", "Uppsalas historia", "Leif Erikson", "Barcelona", "Norge",
+    "Danmark", "Carl von Linné", "Anders Celsius", "Alfred Nobel", "Jöns Jacob Berzelius", "Gustaf Dalén",
+    "Selma Lagerlöf", "August Strindberg", "Carl Michael Bellman", "Carl Jonas Love Almqvist", "Carl Gustaf Tessin",
+    "Kalmar slott", "Uppsala domkyrka", "Stockholms stadshus", "Stockholms slott", "Göteborgs stadshus"
+  ],
+  "augment_data": true
 }

@@ -1,0 +1,13 @@
+{
+    "learning_rate": 6.5e-5,
+    "epochs": 20,
+    "eval_frequency": 5,
+    "batch_size": 128,
+    "max_target_length": 108,
+    "image_processor_type": "ViT",
+    "encoder": "google/vit-base-patch16-224-in21k",
+    "tokenizer_type": "BERT",
+    "decoder": "KBLab/bert-base-swedish-cased",
+    "log_dir": "/home/x_salom/",
+    "model_version": 1.0
+}

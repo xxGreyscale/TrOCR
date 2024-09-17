@@ -4,8 +4,8 @@
     "eval_frequency": 10,
     "batch_size": 128,
     "max_target_length": 108,
-    "vision_encoder_decoder_model": "custom_model/trocr-handwritten/small/1.0",
-    "processor": "custom_model/trocr-handwritten/small/1.0",
+    "vision_encoder_decoder_model": "custom_models/trocr-handwritten/small/1.0",
+    "processor": "custom_models/trocr-handwritten/small/1.0",
     "log_dir": "/home/x_salom/",
     "model_version": 1.0
 }

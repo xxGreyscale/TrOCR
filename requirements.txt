@@ -1,4 +1,3 @@
-tensorflow
 numpy~=1.24.3
 torchvision
 setuptools~=69.5.1

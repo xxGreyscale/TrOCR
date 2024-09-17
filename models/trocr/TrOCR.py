@@ -209,7 +209,7 @@ class TrOCR:
         best_train_loss = float('inf')  # start with a high loss
 
         optimizer = torch.optim.AdamW(self.model.parameters(), lr=learning_rate)
-        for epoch in range(self.config.num_epochs):
+        for epoch in range(self.config.epochs):
             # train
             self.model.train()
             train_loss = 0.0

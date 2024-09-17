@@ -37,6 +37,9 @@ class CustomLoader(LoaderInterface):
                         _encoding = result['encoding']
                         print(f'Encoding: {_encoding}')
                     temp_dataframe = pd.read_csv(path, encoding="utf-8").dropna()
+                    # path has image_labels_dataset.csv, so we need to remove the file_name from the path
+                    dataset_dir = path.replace('image_labels_dataset.csv', '')
+                    temp_dataframe[columns[0]] = temp_dataframe[columns[0]].apply(lambda x: dataset_dir + x)
                     temp_dataframe.rename(columns={columns[0]: 'file_name', columns[1]: 'text'}, inplace=True)
                     combined_dataframe = pd.concat([combined_dataframe, temp_dataframe], ignore_index=True)
                 else:

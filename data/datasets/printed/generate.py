@@ -140,6 +140,17 @@ class GenerateSyntheticPrintedDataset:
                         logger.log(msg=f"Error: Failed to get sentences from {page_name} with error: {e}",
                                    level=logging.ERROR)
 
+            while len(sentences) < self.num_of_sentences:
+                try:
+                    # if total sentences is less than the required number of sentences
+                    # get a random page
+                    page_name = "Special:Random"
+                    _sentences = GenerateSyntheticPrintedDataset.get_sentences_with_retry(page_name)
+                    sentences += _sentences
+                except Exception as e:
+                    logger.error(f"Failed to get sentences from {page_name}: {e}")
+                    continue
+
             logger.info(f"Total sentences: {len(sentences)}")
             # save sentences to a .csv file
             # Check if the file exists
@@ -165,6 +176,7 @@ class GenerateSyntheticPrintedDataset:
         :return:
         """
         # pair at least 2 fonts with a sentence
+        self.num_of_sentences = max_sentences
         sentences = self.generate_sentence_from_pages(self.pages)
 
         # shuffle the sentences

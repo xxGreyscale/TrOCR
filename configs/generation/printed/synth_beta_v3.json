@@ -5,8 +5,7 @@
   "pages": [
     "Facebook", "Liverpool FC", "Kungliga Tekniska högskolan", "Malmö FF",
     "Twitter", "Students' IP", "Uppsala", "Eleda Stadion", "Youtube", "Chelsea FC",
-    "Uppsala universitet", "IK Sirius FK", "Google", "Svenska", "Hjärtdjur", "Storängen",
-    "IKEA", "Svenska språket"
+    "Uppsala universitet", "IK Sirius FK", "Google", "Svenska", "Hjärtdjur", "Storängen"
   ],
   "augment_data": true
 }

@@ -1,0 +1,12 @@
+{
+  "save_dir": "datasets/printed/synthetic/beta_v3",
+  "lang": "se",
+  "num_images": 500000,
+  "pages": [
+    "Facebook", "Liverpool FC", "Kungliga Tekniska högskolan", "Malmö FF",
+    "Twitter", "Students' IP", "Uppsala", "Eleda Stadion", "Youtube", "Chelsea FC",
+    "Uppsala universitet", "IK Sirius FK", "Google", "Svenska", "Hjärtdjur", "Storängen",
+    "IKEA", "Svenska språket"
+  ],
+  "augment_data": true
+}

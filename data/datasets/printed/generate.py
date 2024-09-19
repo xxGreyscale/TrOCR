@@ -69,11 +69,28 @@ class GenerateSyntheticPrintedDataset:
                 continue
             except PageError:
                 continue
-            except:
+            except Exception:
                 continue
         sentences = re.split(r'(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|\?)\s', content)
-        sentences = [sentence.replace('\n', ' ').replace('\t', ' ') for sentence in sentences]
+        sentences = [GenerateSyntheticPrintedDataset.sanitize_sentence(str(sentence)) for sentence in sentences]
         return sentences
+
+    @staticmethod
+    def sanitize_sentence(sentence):
+        """
+        Sanitize a sentence
+        :param sentence:
+        :return:
+        """
+        if not isinstance(sentence, str):
+            raise TypeError("Expected sentence to be a string!")
+        sentence = re.sub(r'={2,}', '', sentence)
+        sentence = re.sub(r'\[\d+]', '', sentence)
+        sentence = re.sub(r'\([^)]*\)', '', sentence)
+        sentence = re.sub(r'\s+\.', '.', sentence)
+        sentence = re.sub(r'\s+', ' ', sentence)
+        sentence = sentence.strip()
+        return sentence
 
     @staticmethod
     def get_sentences_with_retry(page_name, retries=5, delay=2):
@@ -84,7 +101,7 @@ class GenerateSyntheticPrintedDataset:
                     return sentences
             except ConnectTimeout:
                 time.sleep(delay)
-            except:
+            except Exception:
                 time.sleep(delay)
         raise Exception(f"Failed to get sentences from {page_name} after {retries} attempts")
 
@@ -98,7 +115,9 @@ class GenerateSyntheticPrintedDataset:
                 reader = csv.reader(file)
                 next(reader)
                 for row in reader:
-                    sentences.append(row[0])
+                    # sanitize the sentence
+                    sentence = GenerateSyntheticPrintedDataset.sanitize_sentence(str(row[0]))
+                    sentences.append(sentence)
             return sentences
         else:
             def fetch_sentences(page_name):
@@ -128,7 +147,8 @@ class GenerateSyntheticPrintedDataset:
             os.makedirs(self.target_dir, exist_ok=True)
 
             file_exists = os.path.isfile(f"{self.target_dir}/sentences.csv")
-            with open(f"{self.target_dir}/sentences.csv", mode='a' if file_exists else 'w', newline='', encoding='utf-8') as file:
+            with open(f"{self.target_dir}/sentences.csv", mode='a' if file_exists else 'w', newline='',
+                      encoding='utf-8') as file:
                 writer = csv.writer(file)
                 # Write the header row if the file is being created
                 if not file_exists:
@@ -156,6 +176,7 @@ class GenerateSyntheticPrintedDataset:
             _img = Image.new("RGB", (1, 1), "white")
             draw = ImageDraw.Draw(_img)
             # Ensure font is correctly created
+            ___font = None
             if isinstance(__font, tuple):
                 _font_name, _font_path, _font_size = __font
                 try:
@@ -164,6 +185,8 @@ class GenerateSyntheticPrintedDataset:
                     ___font = ImageFont.load_default()
 
             # Get text bounding box
+            if ___font is None:
+                raise ValueError("Font is not defined")
             bbox = draw.textbbox((0, 0), sentence, font=___font)
             text_width = bbox[2] - bbox[0]
             text_height = bbox[3] - bbox[1]
@@ -253,7 +276,7 @@ class GenerateSyntheticPrintedDataset:
         :param augment_data:
         :return:
         """
-        font_name, font_path, font_size = font
+        # font_name, font_path, font_size = font
         try:
             img = self.setup_image(sentence, font)
             if augment_data:

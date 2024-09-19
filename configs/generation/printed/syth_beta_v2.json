@@ -1,0 +1,18 @@
+{
+  "save_dir": "datasets/printed/synthetic/beta_v2",
+  "lang": "se",
+  "num_images": 500000,
+  "pages": [
+    "Quantum Mechanics", "Artificial Intelligence", "Machine Learning", "Blockchain", "Kotlin (programming language)",
+    "World War II", "Industrial Revolution", "History of Africa", "Renaissance Art", "Impressionism",
+    "Cultural Diversity", "Linear Algebra", "Probability Theory", "Graph Theory", "Earth's Climate",
+    "Mount Everest", "African Geography", "Python (programming language)", "Convolutional Neural Network",
+    "Reinforcement Learning", "Natural Language Processing", "GraphQL", "Spring Framework", "Next.js",
+    "Barack Obama", "Taylor Swift", "Cristiano Ronaldo", "Olympic Games", "FIFA World Cup",
+    "The Beatles", "Elon Musk", "Donald Trump", "Kim Kardashian", "Academy Awards",
+    "2020 US Presidential Election", "Climate Change", "COVID-19 pandemic", "SpaceX", "United Nations",
+    "Tour de France", "Super Bowl", "Nobel Prize", "Nelson Mandela", "Greta Thunberg",
+    "Hollywood", "Met Gala", "Brexit", "World Health Organization", "Black Lives Matter"
+  ],
+  "augment_data": true
+}

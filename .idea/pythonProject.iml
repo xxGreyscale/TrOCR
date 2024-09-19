@@ -5,15 +5,15 @@
       <excludeFolder url="file://$MODULE_DIR$/TrOCR_SWE.egg-info" />
       <excludeFolder url="file://$MODULE_DIR$/__depricated/custom_data" />
       <excludeFolder url="file://$MODULE_DIR$/__depricated/custom_data_two" />
-      <excludeFolder url="file://$MODULE_DIR$/datasets/fonts" />
       <excludeFolder url="file://$MODULE_DIR$/datasets/handwritten" />
       <excludeFolder url="file://$MODULE_DIR$/datasets/printed" />
       <excludeFolder url="file://$MODULE_DIR$/tmp" />
       <excludeFolder url="file://$MODULE_DIR$/transcribed_data/demoktati" />
       <excludeFolder url="file://$MODULE_DIR$/transcribed_data/labours-memory" />
       <excludeFolder url="file://$MODULE_DIR$/wandb" />
+      <excludeFolder url="file://$MODULE_DIR$/raw/fonts" />
     </content>
-    <orderEntry type="jdk" jdkName="dataML" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="ml" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
 </module>

@@ -1,6 +1,8 @@
 import csv
 import logging
 import os
+import traceback
+
 import wikipedia
 from wikipedia.exceptions import PageError
 import numpy as np
@@ -101,9 +103,9 @@ class GenerateSyntheticPrintedDataset:
         else:
             def fetch_sentences(page_name):
                 try:
-                    __sentences = [sentence for sentence in
+                    __sentences = [_sentence for _sentence in
                                    GenerateSyntheticPrintedDataset.get_sentences_with_retry(page_name)
-                                   if len(sentence) < 110]
+                                   if len(_sentence) < 110]
                     return __sentences
                 except Exception as _e:
                     time.sleep(.5)
@@ -137,7 +139,7 @@ class GenerateSyntheticPrintedDataset:
                     writer.writerow([sentence])
             return sentences
 
-    def pair_fonts_with_sentences(self):
+    def pair_fonts_with_sentences(self, max_sentences=500000):
         """
         Pair fonts with sentences
         :return:
@@ -149,12 +151,62 @@ class GenerateSyntheticPrintedDataset:
         random.shuffle(sentences)
         fonts = self.fonts.get_random_fonts()
         paired_fonts = []
+
+        def check_text_fits(__sentence, __font):
+            _img = Image.new("RGB", (1, 1), "white")
+            draw = ImageDraw.Draw(_img)
+            # Ensure font is correctly created
+            if isinstance(__font, tuple):
+                _font_name, _font_path, _font_size = __font
+                try:
+                    ___font = ImageFont.truetype(font_path, size=font_size)
+                except IOError:
+                    ___font = ImageFont.load_default()
+
+            # Get text bounding box
+            bbox = draw.textbbox((0, 0), sentence, font=___font)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+
+            return text_width > 0 and text_height > 0
+
+        def split_sentence(__sentence, max_length=110):
+            words = __sentence.split()
+            __lines = []
+            current_line = []
+
+            for word in words:
+                if len(' '.join(current_line + [word])) <= max_length:
+                    current_line.append(word)
+                else:
+                    __lines.append(' '.join(current_line))
+                    current_line = [word]
+
+            if current_line:
+                __lines.append(' '.join(current_line))
+
+            return __lines
+
         try:
             for i, sentence in tqdm(enumerate(sentences), total=len(sentences), desc="Pairing fonts with sentences"):
-                font = random.choice(fonts)
-                font_name, font_path = font
-                font_size = random.randint(20, 40)
-                paired_fonts.append((sentence, f"image_{str(i).zfill(7)}", (font_name, font_path, font_size)))
+                if i >= max_sentences:
+                    break
+                lines = split_sentence(sentence)
+                for line in lines:
+                    while True:
+                        font = random.choice(fonts)
+                        font_size = random.randint(20, 40)
+                        font_name, font_path = font
+                        # check if the font works with the sentence
+                        try:
+                            if check_text_fits(line, (font_name, font_path, font_size)):
+                                paired_fonts.append(
+                                    (sentence, f"image_{str(i).zfill(7)}", (font_name, font_path, font_size)))
+                                break
+                        except Exception as e:
+                            logger.error(f"Failed to setup image: {e}")
+                            continue
+
             return paired_fonts
         except Exception as e:
             logger.error(f"Failed to pair fonts with sentences: {e}")
@@ -216,7 +268,7 @@ class GenerateSyntheticPrintedDataset:
             save_path = os.path.join(images_dir, f"{img_name}.jpeg")
             img.save(save_path, format='JPEG')
 
-            return font_name, img_name, sentence
+            return img_name, sentence
         except FileNotFoundError as e:
             logger.error(f"File not found: {e}")
             return None, None
@@ -235,7 +287,7 @@ class GenerateSyntheticPrintedDataset:
             failed = 0
             generated_images = 0
             logger.info(f"Generating {num_images} images...")
-            paired_fonts = self.pair_fonts_with_sentences()
+            paired_fonts = self.pair_fonts_with_sentences(max_sentences=num_images)
 
             if not os.path.exists(self.target_dir):
                 os.makedirs(self.target_dir)
@@ -257,20 +309,19 @@ class GenerateSyntheticPrintedDataset:
                         if result is not None:
                             results.append(result)
                             generated_images += 1
-                        if generated_images >= num_images:
-                            break
                     except Exception as e:
                         logger.error(f"Error processing result: {e}")
                         failed += 1
 
             # Open CSV file once for writing
+            logger.info("Writing image labels to CSV file...")
             file_exists = os.path.isfile(f"{self.target_dir}/image_labels_dataset.csv")
             with open(f"{self.target_dir}/image_labels_dataset.csv",
                       mode='a' if file_exists else 'w', newline='', encoding='utf-8') as file:
                 writer = csv.writer(file)
                 if not file_exists:
                     writer.writerow(["image_path", "label"])
-                for font_name, img_name, sentence in results:
+                for img_name, sentence in results:
                     writer.writerow([f"images/{img_name}.jpeg", sentence])
 
             if failed > 0:
@@ -285,7 +336,7 @@ class GenerateSyntheticPrintedDataset:
         except csv.Error as e:
             logger.error(f"CSV error: {e}")
         except Exception as e:
-            logger.error(f"An unexpected error occurred: {e}")
+            logger.error(f"An unexpected error occurred: {e}\n{traceback.format_exc()}")
 
     def generate_image_wrapper(self, args):
         sentence, img_name, font, augment = args

@@ -29,7 +29,7 @@ API_KEY = "AIzaSyBb9yWCtp_L2sKJ-_qBEDeEZdGrZ4odvgA"
 class GenerateSyntheticPrintedDataset:
     def __init__(self, pages=None, target_dir=None):
         """
-        Generate a synthetic_beta.json printed dataset
+        Generate a synthetic dataset for project printed dataset
         :param pages: Number of pages to get sentences from
         :param target_dir: Directory to save the dataset
         """

@@ -1,0 +1,10 @@
+{
+  "save_dir": "datasets/printed/synthetic/test",
+  "lang": "sv",
+  "num_images": 16000,
+  "pages": [
+   "Earth", "Boeing 777", "Metallica", "The Simpsons", "The Lord of the Rings", "John Lennon",
+    "Mars", "India", "Moon", "Bird"
+  ],
+  "augment_data": false
+}

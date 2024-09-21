@@ -59,3 +59,10 @@ class Fonts:
         :return:
         """
         return random.choices(self.get_google_fonts(), k=10)
+
+    def default_font(self):
+        """
+        Get the default font
+        :return:
+        """
+        return self.get_google_fonts()[0]

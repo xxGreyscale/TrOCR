@@ -10,6 +10,10 @@ def correct_paths(input_file, output_file):
     df['image_path'] = df['image_path'].str.replace(r'\\+', '/', regex=True)
     df['image_path'] = df['image_path'].str.replace(r'\\', '/', regex=True)   # Handles \
 
+    # remove the everything except the last part of the path, and add images/ to the beginning
+    df['image_path'] = df['image_path'].str.split('/').str[-1]
+    df['image_path'] = 'images/' + df['image_path']
+
     # Save the corrected DataFrame back to the CSV
     df.to_csv(output_file, index=False)
 

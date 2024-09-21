@@ -171,6 +171,7 @@ class GenerateSyntheticPrintedDataset:
             while len(sentences) < self.num_of_sentences:
                 try:
                     _sentences = GenerateSyntheticPrintedDataset.read_wikipedia_random_pages()
+                    _sentences = [_sentence for _sentence in _sentences if len(_sentence) < 110]
                     sentences += _sentences
                     progress_bar.update(len(_sentences))
                 except Exception as e:

@@ -16,13 +16,15 @@ class Config:
             vision_encoder_decoder_model=None,
             encoder=None,
             eval_frequency=1,
+            test_dataset=None,
+            wandb_project="TrOCR - Thesis Results",
             log_dir=None  # logs for wandb
-
     ):
         self.learning_rate = learning_rate
         self.epochs = epochs
         self.batch_size = batch_size
         self.max_target_length = max_target_length
+        self.wandb_project = wandb_project
         if (tokenizer_type is not None
                 and image_processor_type is not None
                 and decoder is not None
@@ -37,13 +39,14 @@ class Config:
             self.vision_encoder_decoder_model = vision_encoder_decoder_model
         self.model_version = model_version
         self.eval_frequency = eval_frequency
+        self.test_dataset = test_dataset
         self.log_dir = log_dir
 
     def __str__(self):
         if hasattr(self, "processor"):
-            return f"Config(learning_rate={self.learning_rate}, epochs={self.epochs}, batch_size={self.batch_size}, max_target_length={self.max_target_length}, model_version={self.model_version}, processor={self.processor}, vision_encoder_decoder_model={self.vision_encoder_decoder_model}), eval_frequency={self.eval_frequency})"
+            return f"Config(learning_rate={self.learning_rate}, epochs={self.epochs}, batch_size={self.batch_size}, max_target_length={self.max_target_length}, model_version={self.model_version}, processor={self.processor}, vision_encoder_decoder_model={self.vision_encoder_decoder_model}), eval_frequency={self.eval_frequency}, test_dataset={self.test_dataset}, log_dir={self.log_dir}, wandb_project={self.wandb_project})"
         if hasattr(self, "decoder"):
-            return f"Config(learning_rate={self.learning_rate}, epochs={self.epochs}, batch_size={self.batch_size}, max_target_length={self.max_target_length}, model_version={self.model_version}, decoder={self.decoder}, tokenizer_type={self.tokenizer_type}, image processor={self.image_processor_type}, encoder={self.encoder}), eval_frequency={self.eval_frequency})"
+            return f"Config(learning_rate={self.learning_rate}, epochs={self.epochs}, batch_size={self.batch_size}, max_target_length={self.max_target_length}, model_version={self.model_version}, decoder={self.decoder}, tokenizer_type={self.tokenizer_type}, image processor={self.image_processor_type}, encoder={self.encoder}), eval_frequency={self.eval_frequency}, test_dataset={self.test_dataset}, log_dir={self.log_dir}, wandb_project={self.wandb_project})"
 
     def __repr__(self):
         return self.__str__()
@@ -58,6 +61,8 @@ class Config:
                 "model_version": self.model_version,
                 "processor": self.processor,
                 "vision_encoder_decoder_model": self.vision_encoder_decoder_model,
+                "test_dataset": self.test_dataset,
+                "wandb_project": self.wandb_project,
                 "eval_frequency": self.eval_frequency
             }
         if (hasattr(self, "decoder")
@@ -74,6 +79,8 @@ class Config:
                 "tokenizer_type": self.tokenizer_type,
                 "image_processor_type": self.image_processor_type,
                 "encoder": self.encoder,
+                "test_dataset": self.test_dataset,
+                "wandb_project": self.wandb_project,
                 "eval_frequency": self.eval_frequency
             }
 
@@ -88,7 +95,9 @@ class Config:
                 model_version=data["model_version"],
                 processor=data["processor"],
                 vision_encoder_decoder_model=data["vision_encoder_decoder_model"],
-                eval_frequency=data["eval_frequency"]
+                test_dataset=data["test_dataset"],
+                eval_frequency=data["eval_frequency"],
+                wandb_project=data["wandb_project"]
             )
         if "decoder" in data:
             return Config(
@@ -101,7 +110,9 @@ class Config:
                 tokenizer_type=data["tokenizer_type"],
                 image_processor_type=data["image_processor_type"],
                 encoder=data["encoder"],
-                eval_frequency=data["eval_frequency"]
+                test_dataset=data["test_dataset"],
+                eval_frequency=data["eval_frequency"],
+                wandb_project=data["wandb_project"]
             )
 
     @staticmethod

@@ -62,14 +62,14 @@ class TrOCR:
         _cer = self.cer_metric.compute(predictions=pred_str, references=label_str)
         return _cer
 
-    def prepare_dataset(self, dataframe):
+    def prepare_dataset(self, args):
         """
         Prepare the dataset for training
         :param dataframe:
+        :param test_dataframe
         :return: train_dataset and eval_dataset
         """
-        # split the data
-        train_df, test_df = train_test_split(dataframe, test_size=0.2)
+        train_df, test_df = args
         # reset the indices to start from zero
         train_df.reset_index(drop=True, inplace=True)
         test_df.reset_index(drop=True, inplace=True)

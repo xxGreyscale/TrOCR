@@ -107,15 +107,21 @@ def transfer_learning(config: Config, args):
         logger.info("Getting the dataset...")
         data = CustomLoader(args.dataset_paths)
         data.generate_dataframe()
+
+        test_data = CustomLoader(config.test_dataset)
+        test_data.generate_dataframe()
+
         # create the model
         logger.info("Creating the model...")
         model = TrOCR(config, args.save_dir)
         model.build_model_with_pretrained(config.processor, config.vision_encoder_decoder_model)
         # prepare the dataset and loader
         if args.with_half_data:
-            train_dataloader, eval_dataloader = model.set_data_loader(*model.prepare_dataset(data.get_half_dataframe()))
+            train_dataloader, eval_dataloader = (
+                model.set_data_loader(*model.prepare_dataset((data.get_half_dataframe(), test_data.get_dataframe()))))
         else:
-            train_dataloader, eval_dataloader = model.set_data_loader(*model.prepare_dataset(data.get_dataframe()))
+            train_dataloader, eval_dataloader = (
+                model.set_data_loader(*model.prepare_dataset((data.get_dataframe(), test_data.get_dataframe()))))
         # train the model
         model.train(train_dataloader, eval_dataloader, eval_every=config.eval_frequency)
     except Exception as e:
@@ -135,12 +141,17 @@ def train(config: Config, args):
         logger.info("Getting the dataset...")
         data = CustomLoader(args.dataset_paths)
         data.generate_dataframe()
+
+        test_data = CustomLoader(config.test_dataset)
+        test_data.generate_dataframe()
+
         # create the model
         logger.info("Creating the model...")
         model = TrOCR(config, args.save_dir)
         model.build_model()
         # prepare the dataset and loader
-        train_dataloader, eval_dataloader = model.set_data_loader(*model.prepare_dataset(data.get_dataframe()))
+        train_dataloader, eval_dataloader = (
+            model.set_data_loader(*model.prepare_dataset((data.get_dataframe(), test_data.get_dataframe()))))
         # train the model
         model.train(train_dataloader, eval_dataloader, eval_every=config.eval_frequency)
     except Exception as e:

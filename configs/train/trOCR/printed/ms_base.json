@@ -1,7 +1,7 @@
 {
     "learning_rate": 6.5e-5,
-    "epochs": 24,
-    "eval_frequency": 2,
+    "epochs": 20,
+    "eval_frequency": 10,
     "batch_size": 64,
     "max_target_length": 108,
     "vision_encoder_decoder_model": "microsoft/trocr-base-printed",

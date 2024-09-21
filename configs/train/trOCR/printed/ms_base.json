@@ -7,5 +7,7 @@
     "vision_encoder_decoder_model": "microsoft/trocr-base-printed",
     "processor": "microsoft/trocr-base-handwritten",
     "log_dir": "/home/x_salom/",
+    "test_dataset": ["datasets/printed/synthetic/test/image_labels_dataset.csv"],
+    "wandb_project": "TrOCR - Printed Results v1",
     "model_version": 1.0
 }

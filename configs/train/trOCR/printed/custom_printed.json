@@ -9,5 +9,7 @@
     "tokenizer_type": "BERT",
     "decoder": "KBLab/bert-base-swedish-cased",
     "log_dir": "/home/x_salom/",
+    "test_dataset": ["datasets/printed/synthetic/test/image_labels_dataset.csv"],
+    "wandb_project": "TrOCR - Printed Results v1",
     "model_version": 1.0
 }

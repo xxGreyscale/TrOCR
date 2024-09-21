@@ -37,33 +37,55 @@ class GenerateSyntheticPrintedDataset:
         self.num_images = 0
         self.num_of_sentences = 0
         self.pages = pages
+        self.language = "sv"
         self.target_dir = target_dir
         self.custom_transforms = CustomTransformation(
             min_noise_factor=0.1, max_noise_factor=0.2, sigma=5.0,
-            random_noise_p=0.7, random_rotation_p=0.5,
-            invert_p=0.2, elastic_grid_p=0.8, resize_p=0.5
+            random_noise_p=0.3, random_rotation_p=0.2,
+            invert_p=0.1, elastic_grid_p=0.4, resize_p=0.3
         )
 
     @staticmethod
-    def read_wikipedia_page(page_name, lang="sv"):
-        """
-        Read a Wikipedia page
-        :param lang:
-        :param page_name:
-        :return:
-        """
+    def fetch_wikipedia_page(page_name, lang="sv"):
         wikipedia.set_lang(lang)
         search = wikipedia.search(page_name)
-        page = wikipedia.page(auto_suggest=False, title=search[0])
-        links = page.links
+        if not search:
+            logger.info(f"Failed to find search results for '{page_name}'")
+            return [], []
+        page = wikipedia.page(search[0])
+        links = page.links if page.links else []
         return page.content, links
 
     @staticmethod
+    def read_wikipedia_random_pages(lang="sv", retries=5, delay=2):
+        """
+        Read a random Wikipedia page with retry mechanism
+        :param lang: Language of the Wikipedia page
+        :param retries: Number of retries for network errors
+        :param delay: Delay between retries
+        :return: List of sanitized sentences
+        """
+        wikipedia.set_lang(lang)
+        for attempt in range(retries):
+            try:
+                random_page = wikipedia.random(1)
+                page = wikipedia.page(random_page)
+                content = page.content
+                sentences = re.split(r'(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|\?)\s', content)
+                sentences = [GenerateSyntheticPrintedDataset.sanitize_sentence(str(sentence)) for sentence in sentences]
+                return sentences
+            except (ConnectTimeout, ConnectionError) as e:
+                time.sleep(delay)
+            except wikipedia.exceptions.DisambiguationError as e:
+                time.sleep(delay)
+            except Exception as e:
+                time.sleep(delay)
+
     def get_sentences(page_name, lang="sv"):
-        content, links = GenerateSyntheticPrintedDataset.read_wikipedia_page(page_name, lang)
+        content, links = GenerateSyntheticPrintedDataset.fetch_wikipedia_page(page_name, lang)
         for link in tqdm(links, desc=f"Reading Wikipedia pages links from {page_name}"):
             try:
-                _content, _links = GenerateSyntheticPrintedDataset.read_wikipedia_page(link, lang)
+                _content, _links = GenerateSyntheticPrintedDataset.fetch_wikipedia_page(link, lang)
                 content += ". " + _content
             except ConnectTimeout:
                 continue
@@ -101,6 +123,10 @@ class GenerateSyntheticPrintedDataset:
                     return sentences
             except ConnectTimeout:
                 time.sleep(delay)
+            except wikipedia.exceptions.DisambiguationError as e:
+                time.sleep(delay)
+            except wikipedia.exceptions.PageError as e:
+                time.sleep(delay)
             except Exception:
                 time.sleep(delay)
         raise Exception(f"Failed to get sentences from {page_name} after {retries} attempts")
@@ -122,10 +148,11 @@ class GenerateSyntheticPrintedDataset:
         else:
             def fetch_sentences(page_name):
                 try:
-                    __sentences = [_sentence for _sentence in
-                                   GenerateSyntheticPrintedDataset.get_sentences_with_retry(page_name)
-                                   if len(_sentence) < 110]
-                    return __sentences
+                    __sentences = GenerateSyntheticPrintedDataset.get_sentences_with_retry(page_name)
+                    if __sentences is None:
+                        logger.error(f"Failed to get sentences from {page_name}: returned None")
+                        return []
+                    return [_sentence for _sentence in __sentences if len(_sentence) < 110]
                 except Exception as _e:
                     time.sleep(.5)
 
@@ -140,16 +167,16 @@ class GenerateSyntheticPrintedDataset:
                         logger.log(msg=f"Error: Failed to get sentences from {page_name} with error: {e}",
                                    level=logging.ERROR)
 
+            progress_bar = tqdm(total=(self.num_of_sentences - len(sentences)), desc="Getting sentences from random pages....")
             while len(sentences) < self.num_of_sentences:
                 try:
-                    # if total sentences is less than the required number of sentences
-                    # get a random page
-                    page_name = "Special:Random"
-                    _sentences = GenerateSyntheticPrintedDataset.get_sentences_with_retry(page_name)
+                    _sentences = GenerateSyntheticPrintedDataset.read_wikipedia_random_pages()
                     sentences += _sentences
+                    progress_bar.update(len(_sentences))
                 except Exception as e:
-                    logger.error(f"Failed to get sentences from {page_name}: {e}")
                     continue
+            progress_bar.close()
+
 
             logger.info(f"Total sentences: {len(sentences)}")
             # save sentences to a .csv file
@@ -175,109 +202,105 @@ class GenerateSyntheticPrintedDataset:
         Pair fonts with sentences
         :return:
         """
-        # pair at least 2 fonts with a sentence
         self.num_of_sentences = max_sentences
         sentences = self.generate_sentence_from_pages(self.pages)
-
-        # shuffle the sentences
         random.shuffle(sentences)
         fonts = self.fonts.get_random_fonts()
         paired_fonts = []
+        def pair_sentence_with_font(args):
+            i, sentence = args
+            font = random.choice(fonts)
+            font_size = random.randint(18, 40)
+            font_name, font_path = font
+            return sentence, f"image_{str(i).zfill(7)}", (font_name, font_path, font_size)
 
-        def check_text_fits(__sentence, __font):
-            _img = Image.new("RGB", (1, 1), "white")
-            draw = ImageDraw.Draw(_img)
-            # Ensure font is correctly created
-            ___font = None
-            if isinstance(__font, tuple):
-                _font_name, _font_path, _font_size = __font
-                try:
-                    ___font = ImageFont.truetype(font_path, size=font_size)
-                except IOError:
-                    ___font = ImageFont.load_default()
+        try:
+            with ThreadPoolExecutor(max_workers=cpu_count()) as executor:
+                futures = {executor.submit(pair_sentence_with_font, (i, sentence)): sentence for i, sentence in enumerate(sentences[:max_sentences])}
+                for future in tqdm(as_completed(futures), total=len(futures), desc="Pairing fonts with sentences"):
+                    result = future.result()
+                    if result:
+                        paired_fonts.append(result)
+            return paired_fonts
+        except Exception as e:
+            logger.error(f"Failed to pair fonts with sentences: {e}")
+            return []
 
+    @staticmethod
+    def setup_image(sentence, __font):
+        def text_fits(text_width, text_height):
+            return text_width > 0 and text_height > 0
+
+        def get_bounding_box(sentence, font, draw):
             # Get text bounding box
-            if ___font is None:
-                raise ValueError("Font is not defined")
-            bbox = draw.textbbox((0, 0), sentence, font=___font)
+            bbox = draw.textbbox((0, 0), sentence, font=font)
             text_width = bbox[2] - bbox[0]
             text_height = bbox[3] - bbox[1]
-
-            return text_width > 0 and text_height > 0
+            return text_width, text_height
 
         def split_sentence(__sentence, max_length=110):
             words = __sentence.split()
             __lines = []
             current_line = []
-
             for word in words:
                 if len(' '.join(current_line + [word])) <= max_length:
                     current_line.append(word)
                 else:
                     __lines.append(' '.join(current_line))
                     current_line = [word]
-
             if current_line:
                 __lines.append(' '.join(current_line))
-
             return __lines
 
-        try:
-            for i, sentence in tqdm(enumerate(sentences), total=len(sentences), desc="Pairing fonts with sentences"):
-                if i >= max_sentences:
-                    break
-                lines = split_sentence(sentence)
-                for line in lines:
-                    while True:
-                        font = random.choice(fonts)
-                        font_size = random.randint(20, 40)
-                        font_name, font_path = font
-                        # check if the font works with the sentence
-                        try:
-                            if check_text_fits(line, (font_name, font_path, font_size)):
-                                paired_fonts.append(
-                                    (sentence, f"image_{str(i).zfill(7)}", (font_name, font_path, font_size)))
-                                break
-                        except Exception as e:
-                            logger.error(f"Failed to setup image: {e}")
-                            continue
+        def draw_text(text_width, text_height, sentence, font):
+            #  TODO: Implement the split_sentence function, for each line in lines, draw the text
+            img = Image.new("RGB", (text_width, text_height), "white")
+            max_padding_x = max(2, (text_width - 1) // 2)
+            max_padding_y = max(2, (text_height - 1) // 2)
+            # Generate random padding values within the allowable range
+            padding = (
+                random.randint(2, max_padding_x),
+                random.randint(2, max_padding_y),
+                random.randint(2, max_padding_x),
+                random.randint(2, max_padding_y)
+            )
+            img = ImageOps.expand(img, padding, fill="white")
+            draw = ImageDraw.Draw(img)
 
-            return paired_fonts
-        except Exception as e:
-            logger.error(f"Failed to pair fonts with sentences: {e}")
+            fill_color = tuple(np.random.randint(0, 100) for _ in range(3))
+            draw.text((padding[0], padding[1]), sentence, font=font, fill=fill_color)
 
-    @staticmethod
-    def setup_image(sentence, __font):
+            np_img = np.array(img)
+
+            if np.isnan(np_img).any() or np.isinf(np_img).any():
+                np_img = np.nan_to_num(np_img, nan=0, posinf=255, neginf=0)
+                print("Warning: Invalid values encountered and replaced.")
+
+            img = Image.fromarray(np_img)
+            return img
+
         font_name, font_path, font_size = __font
         img = Image.new("RGB", (1, 1), "white")
         draw = ImageDraw.Draw(img)
         try:
             font = ImageFont.truetype(font_path, size=font_size)
         except IOError:
-            # logger.error(f"Failed to load font: {font_path}")
             font = ImageFont.load_default()
 
-        # Get text bounding box
-        bbox = draw.textbbox((0, 0), sentence, font=font)
-        text_width = bbox[2] - bbox[0]
-        text_height = bbox[3] - bbox[1]
-
-        img = Image.new("RGB", (text_width, text_height), "white")
-        padding = tuple(random.randint(5, 20) for _ in range(4))
-        img = ImageOps.expand(img, padding, fill="white")
-        draw = ImageDraw.Draw(img)
-
-        fill_color = tuple(np.random.randint(0, 100) for _ in range(3))
-        draw.text((padding[0], padding[1]), sentence, font=font, fill=fill_color)
-
-        np_img = np.array(img)
-
-        if np.isnan(np_img).any() or np.isinf(np_img).any():
-            np_img = np.nan_to_num(np_img, nan=0, posinf=255, neginf=0)
-            print("Warning: Invalid values encountered and replaced.")
-
-        img = Image.fromarray(np_img)
-        return img
+        text_width, text_height = get_bounding_box(sentence, font, draw)
+        images = []
+        if not text_fits(text_width, text_height):
+        #     split the sentence
+            lines = split_sentence(sentence)
+            for line in lines:
+                text_width, text_height = get_bounding_box(line, font, draw)
+                if text_fits(text_width, text_height):
+                    img = draw_text(text_width, text_height, line, font)
+                    images.append(img)
+        else:
+            img = draw_text(text_width, text_height, sentence, font)
+            images.append(img)
+        return images
 
     def generate_image(self, sentence, img_name, font, augment_data=False):
         """
@@ -290,20 +313,26 @@ class GenerateSyntheticPrintedDataset:
         """
         # font_name, font_path, font_size = font
         try:
-            img = self.setup_image(sentence, font)
-            if augment_data:
-                try:
-                    img = self.custom_transforms.data_transformer(img)
-                except Exception as e:
-                    logger.error(f"Data augmentation failed: {e}")
-                    return None, None
+            imgs = self.setup_image(sentence, font)
+            results = []
+            for i, img in enumerate(imgs):
+                if augment_data:
+                    try:
+                        processed_img = self.custom_transforms.data_transformer(img)
+                    except Exception as e:
+                        # logger.error(f"Data augmentation failed: {e}")
+                        # Just use the original image
+                        processed_img = img # Use the original image
+                else:
+                    processed_img = img
+                img_name = f"{img_name}_{str(i).zfill(3)}"
+                images_dir = os.path.join(self.target_dir, "images")
+                os.makedirs(images_dir, exist_ok=True)
+                save_path = os.path.join(images_dir, f"{img_name}.jpeg")
+                processed_img.save(save_path, format='JPEG')
+                results.append((img_name, sentence))
 
-            images_dir = os.path.join(self.target_dir, "images")
-            os.makedirs(images_dir, exist_ok=True)
-            save_path = os.path.join(images_dir, f"{img_name}.jpeg")
-            img.save(save_path, format='JPEG')
-
-            return img_name, sentence
+            return results
         except FileNotFoundError as e:
             logger.error(f"File not found: {e}")
             return None, None
@@ -332,7 +361,7 @@ class GenerateSyntheticPrintedDataset:
                 args = [(sentence, img_name, font, augment_data)
                         for i, (sentence, img_name, font) in enumerate(paired_fonts)]
             else:
-                args = [(sentence, img_name, font)
+                args = [(sentence, img_name, font, augment_data)
                         for i, (sentence, img_name, font) in enumerate(paired_fonts)]
 
             results = []
@@ -356,8 +385,10 @@ class GenerateSyntheticPrintedDataset:
                 writer = csv.writer(file)
                 if not file_exists:
                     writer.writerow(["image_path", "label"])
-                for img_name, sentence in results:
-                    writer.writerow([f"images/{img_name}.jpeg", sentence])
+                for result in tqdm(results, desc="Writing image labels to CSV file"):
+                    if result != (None, None):
+                        for img_name, sentence in result:
+                            writer.writerow([f"images/{img_name}.jpeg", sentence])
 
             if failed > 0:
                 logger.info(f"Failed to generate {failed} images")

@@ -203,7 +203,7 @@ class TrOCR:
         :return: None
         """
 
-        wandb.init(project="tr-ocr", config=self.config.__dict__, dir=self.config.log_dir)
+        wandb.init(project=self.config.wandb_project, config=self.config.__dict__, dir=self.config.log_dir)
         best_cer = float('inf')  # start with a high CER
         learning_rate = self.config.learning_rate
         best_train_loss = float('inf')  # start with a high loss

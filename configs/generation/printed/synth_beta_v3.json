@@ -1,11 +1,14 @@
 {
   "save_dir": "datasets/printed/synthetic/beta_v3",
-  "lang": "se",
-  "num_images": 500000,
+  "lang": "sv",
+  "num_images": 238469,
   "pages": [
     "Facebook", "Liverpool FC", "Kungliga Tekniska högskolan", "Malmö FF",
     "Twitter", "Students' IP", "Uppsala", "Eleda Stadion", "Youtube", "Chelsea FC",
-    "Uppsala universitet", "IK Sirius FK", "Google", "Svenska", "Hjärtdjur", "Storängen"
+    "Uppsala universitet", "IK Sirius FK", "Google", "Svenska", "Hjärtdjur", "Storängen",
+    "United States", "Sverige", "World War II", "Game of Thrones", "New York City",
+    "COVID-19 pandemic", "List of Marvel Cinematic Universe films", "China", "World War I", "Bible",
+    "Lady Gaga", "The Beatles"
   ],
   "augment_data": true
 }

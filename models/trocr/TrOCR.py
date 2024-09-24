@@ -163,6 +163,11 @@ class TrOCR:
         :param eval_dataset:
         :return: None
         """
+        if self.config.test_dataset is None:
+            train_dataset, eval_dataset = train_test_split(train_dataset, test_size=0.2)
+        else:
+            train_dataset = train_dataset
+            eval_dataset = eval_dataset
         train_dataloader = DataLoader(train_dataset, batch_size=self.config.batch_size, shuffle=True)
         eval_dataloader = DataLoader(eval_dataset, batch_size=self.config.batch_size, shuffle=False)
         return train_dataloader, eval_dataloader
@@ -238,10 +243,10 @@ class TrOCR:
             if ((epoch + 1) % eval_every) != 0:
                 continue
             valid_cer = self.evaluate(self.model, eval_dataloader)
+            wandb.log({"CER": valid_cer, "epoch": epoch + 1})
             if valid_cer < best_cer:
                 best_cer = valid_cer
                 # Log validation CER to wandb
-                wandb.log({"CER": valid_cer, "epoch": epoch + 1})
                 logger.info(f"New best CER found: {best_cer}")
                 logger.info(f"Saving the best model...")
                 self.model.save_pretrained(f"{self.save_dir}/{self.config.model_version}/vision_model/")

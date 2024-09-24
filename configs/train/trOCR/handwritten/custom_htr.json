@@ -1,5 +1,5 @@
 {
-    "learning_rate": 6.5e-5,
+    "learning_rate": 5.5e-5,
     "epochs": 24,
     "eval_frequency": 4,
     "batch_size": 128,

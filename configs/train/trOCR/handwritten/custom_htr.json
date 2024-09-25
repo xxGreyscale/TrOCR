@@ -1,6 +1,6 @@
 {
     "learning_rate": 5.5e-5,
-    "epochs": 24,
+    "epochs": 20,
     "eval_frequency": 4,
     "batch_size": 128,
     "max_target_length": 108,

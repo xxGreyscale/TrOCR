@@ -63,23 +63,25 @@ class TrOCR:
         _cer = self.cer_metric.compute(predictions=pred_str, references=label_str)
         return _cer
 
-    def prepare_dataset(self, args):
+    def prepare_dataset(self, train_df, test_df=None):
         """
         Prepare the dataset for training
-        :param dataframe:
-        :param test_dataframe
+        :param train_df: DataFrame for training
+        :param test_df: DataFrame for evaluation (optional)
         :return: train_dataset and eval_dataset
         """
-        train_df, test_df = args
-        # reset the indices to start from zero
-        if test_df is not None and len(test_df) > 0:
-            test_df.reset_index(drop=True, inplace=True)
-            eval_dataset = CustomDataset(test_df, self.processor, self.config.max_target_length)
-        else:
-            eval_dataset = None
+        # Reset the indices to start from zero
         train_df.reset_index(drop=True, inplace=True)
-        # create the datasets
+        if test_df is not None:
+            test_df.reset_index(drop=True, inplace=True)
+        else:
+            # Split the train_df into train and eval datasets if test_df is not provided
+            train_df, test_df = train_test_split(train_df, test_size=0.2)
+            test_df.reset_index(drop=True, inplace=True)
+
+        # Create the datasets
         train_dataset = CustomDataset(train_df, self.processor, self.config.max_target_length)
+        eval_dataset = CustomDataset(test_df, self.processor, self.config.max_target_length)
         return train_dataset, eval_dataset
 
     def build_model(self):
@@ -163,11 +165,17 @@ class TrOCR:
         Set the data loader for training and evaluation
         :param train_dataset:
         :param eval_dataset:
-        :return: None
+        :return: train_dataloader, eval_dataloader
         """
+        if len(train_dataset) == 0:
+            raise ValueError("Train dataset size must be greater than 0")
+
         if eval_dataset is None or len(eval_dataset) == 0:
             logger.info("No test dataset provided. Using the train dataset for evaluation")
             train_dataset, eval_dataset = train_test_split(train_dataset, test_size=0.15)
+            if len(eval_dataset) == 0:
+                raise ValueError("Eval dataset size must be greater than 0 after splitting")
+
         train_dataloader = DataLoader(train_dataset, batch_size=self.config.batch_size, shuffle=True)
         eval_dataloader = DataLoader(eval_dataset, batch_size=self.config.batch_size, shuffle=False)
         return train_dataloader, eval_dataloader

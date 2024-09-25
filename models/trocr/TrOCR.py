@@ -165,7 +165,7 @@ class TrOCR:
         :param eval_dataset:
         :return: None
         """
-        if eval_dataset is None:
+        if eval_dataset is None or len(eval_dataset) == 0:
             print("Splitting the dataset into train and eval...")
             train_dataset, eval_dataset = train_test_split(train_dataset, test_size=0.2)
         else:

@@ -239,43 +239,31 @@ class TrOCR:
                 optimizer.zero_grad()
 
                 train_loss += loss.item()
-            if train_loss < best_train_loss:
-                best_train_loss = train_loss
-                logger.info(f"New best train loss found: {best_train_loss / len(train_dataloader)}")
-            logger.info(f"Loss after epoch {epoch}: {train_loss / len(train_dataloader)}")
 
             # Log training loss to wandb
+            logger.info(f"Loss after epoch {epoch}: {train_loss / len(train_dataloader)}")
             wandb.log({"train_loss": train_loss / len(train_dataloader), "epoch": epoch + 1})
 
             # evaluate
-            if ((epoch + 1) % eval_every) != 0:
-                continue
-            valid_cer = self.evaluate(self.model, eval_dataloader)
-            wandb.log({"CER": valid_cer, "epoch": epoch + 1})
-            if valid_cer < best_cer:
-                best_cer = valid_cer
-                # Log validation CER to wandb
-                logger.info(f"New best CER found: {best_cer}")
-                logger.info(f"Saving the best model...")
-                self.model.save_pretrained(f"{self.save_dir}/{self.config.model_version}/vision_model/")
-                self.processor.save_pretrained(f"{self.save_dir}/{self.config.model_version}/processor/")
-                # save the best model
+            # Only evaluate and log CER every `eval_every` epochs
+            if ((epoch + 1) % eval_every) == 0:
+                valid_cer = self.evaluate(self.model, eval_dataloader)
+                wandb.log({"CER": valid_cer, "epoch": epoch + 1})
 
-            # record the best CER, loss and learning rate in csv
-            # make sure the file is available first
-            with open(f"{self.save_dir}/{self.config.model_version}/metrics.csv", mode='w') as file:
-                writer = csv.writer(file)
-                writer.writerow(["Epoch", "CER", "Loss", "Learning Rate"])
-                writer.writerow([epoch, best_cer, best_train_loss, learning_rate])
+                if valid_cer < best_cer:
+                    best_cer = valid_cer
+                    # Log validation CER to wandb
+                    logger.info(f"New best CER found: {best_cer}")
+                    logger.info(f"Saving the best model...")
+                    self.model.save_pretrained(f"{self.save_dir}/{self.config.model_version}/vision_model/")
+                    self.processor.save_pretrained(f"{self.save_dir}/{self.config.model_version}/processor/")
 
-            if isinstance(self.model, nn.DataParallel):
-                logger.info("Saving the model trained in multiple GPU...")
-                self.model.module.save_pretrained(f"{self.save_dir}/{self.config.model_version}/vision_model/")
-            else:
-                logger.info("Saving the model...")
-                self.model.save_pretrained(f"{self.save_dir}/{self.config.model_version}/vision_model/")
-            logger.info("Saving the processor")
-            self.processor.save_pretrained(f"{self.save_dir}/{self.config.model_version}/processor/")
+                # record the best CER, loss and learning rate in csv
+                # make sure the file is available first
+                with open(f"{self.save_dir}/{self.config.model_version}/metrics.csv", mode='w') as file:
+                    writer = csv.writer(file)
+                    writer.writerow(["Epoch", "CER", "Loss", "Learning Rate"])
+                    writer.writerow([epoch, best_cer, best_train_loss, learning_rate])
 
         logger.info('Finished Training')
         logger.info(f"Best CER: {best_cer}")

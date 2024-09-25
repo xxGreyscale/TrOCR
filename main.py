@@ -108,8 +108,8 @@ def transfer_learning(config: Config, args):
         data = CustomLoader(args.dataset_paths)
         data.generate_dataframe()
 
-        test_data = CustomLoader(config.test_dataset)
-        test_data.generate_dataframe()
+        test_data = CustomLoader(config.test_dataset) if len(config.test_dataset) > 0 else None
+        test_data.generate_dataframe() if test_data is not None else None
 
         # create the model
         logger.info("Creating the model...")
@@ -118,10 +118,10 @@ def transfer_learning(config: Config, args):
         # prepare the dataset and loader
         if args.with_half_data:
             train_dataloader, eval_dataloader = (
-                model.set_data_loader(*model.prepare_dataset((data.get_half_dataframe(), test_data.get_dataframe() if test_data is not None else None))))
+                model.set_data_loader(*model.prepare_dataset((data.get_half_dataframe(), test_data.get_dataframe()))))
         else:
             train_dataloader, eval_dataloader = (
-                model.set_data_loader(*model.prepare_dataset((data.get_dataframe(), test_data.get_dataframe() if test_data is not None else None))))
+                model.set_data_loader(*model.prepare_dataset((data.get_dataframe(), test_data.get_dataframe()))))
         # train the model
         model.train(train_dataloader, eval_dataloader, eval_every=config.eval_frequency)
     except Exception as e:
@@ -142,8 +142,8 @@ def train(config: Config, args):
         data = CustomLoader(args.dataset_paths)
         data.generate_dataframe()
 
-        test_data = CustomLoader(config.test_dataset)
-        test_data.generate_dataframe()
+        test_data = CustomLoader(config.test_dataset) if len(config.test_dataset) > 0 else None
+        test_data.generate_dataframe() if test_data is not None else None
 
         # create the model
         logger.info("Creating the model...")
@@ -151,7 +151,7 @@ def train(config: Config, args):
         model.build_model()
         # prepare the dataset and loader
         train_dataloader, eval_dataloader = (
-            model.set_data_loader(*model.prepare_dataset((data.get_dataframe(), test_data.get_dataframe() if test_data is not None else None))))
+            model.set_data_loader(*model.prepare_dataset((data.get_dataframe(), test_data.get_dataframe()))))
         # train the model
         model.train(train_dataloader, eval_dataloader, eval_every=config.eval_frequency)
     except Exception as e:

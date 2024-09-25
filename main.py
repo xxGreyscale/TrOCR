@@ -118,10 +118,10 @@ def transfer_learning(config: Config, args):
         # prepare the dataset and loader
         if args.with_half_data:
             train_dataloader, eval_dataloader = (
-                model.set_data_loader(*model.prepare_dataset((data.get_half_dataframe(), test_data.get_dataframe()))))
+                model.set_data_loader(*model.prepare_dataset((data.get_half_dataframe(), test_data.get_dataframe() if test_data is not None else None))))
         else:
             train_dataloader, eval_dataloader = (
-                model.set_data_loader(*model.prepare_dataset((data.get_dataframe(), test_data.get_dataframe()))))
+                model.set_data_loader(*model.prepare_dataset((data.get_dataframe(), test_data.get_dataframe() if test_data is not None else None))))
         # train the model
         model.train(train_dataloader, eval_dataloader, eval_every=config.eval_frequency)
     except Exception as e:
@@ -151,7 +151,7 @@ def train(config: Config, args):
         model.build_model()
         # prepare the dataset and loader
         train_dataloader, eval_dataloader = (
-            model.set_data_loader(*model.prepare_dataset((data.get_dataframe(), test_data.get_dataframe()))))
+            model.set_data_loader(*model.prepare_dataset((data.get_dataframe(), test_data.get_dataframe() if test_data is not None else None))))
         # train the model
         model.train(train_dataloader, eval_dataloader, eval_every=config.eval_frequency)
     except Exception as e:

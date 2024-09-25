@@ -16,8 +16,8 @@ def correct_paths(input_file, output_file, prefix):
     # df['image_path'] = df['image_path'].str.split('/').str[-1]
     # df['image_path'] = 'images/' + df['image_path']
 
-    #  For one time use
-    df['image_path'] = prefix + df['image_path'].str.split('/').str[-2] # this should only be -1
+    #  For one time use, tak the last 2 parts of the path
+    df['image_path'] = prefix + df['image_path'].str.split('/').str[-2] + '/' + df['image_path'].str.split('/').str[-1]
 
     # Save the corrected DataFrame back to the CSV
     df.to_csv(output_file, index=False)

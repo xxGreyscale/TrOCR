@@ -76,7 +76,7 @@ class TrOCR:
             test_df.reset_index(drop=True, inplace=True)
         else:
             # Split the train_df into train and eval datasets if test_df is not provided
-            train_df, test_df = train_test_split(train_df, test_size=0.2)
+            train_df, test_df = train_test_split(train_df, test_size=0.15)
             test_df.reset_index(drop=True, inplace=True)
 
         # Create the datasets
@@ -170,12 +170,8 @@ class TrOCR:
         if len(train_dataset) == 0:
             raise ValueError("Train dataset size must be greater than 0")
 
-        if eval_dataset is None or len(eval_dataset) == 0:
-            logger.info("No test dataset provided. Using the train dataset for evaluation")
-            train_dataset, eval_dataset = train_test_split(train_dataset, test_size=0.15)
-            if len(eval_dataset) == 0:
-                raise ValueError("Eval dataset size must be greater than 0 after splitting")
-
+        if len(eval_dataset) == 0:
+            raise ValueError("Eval dataset size must be greater than 0 after splitting")
         train_dataloader = DataLoader(train_dataset, batch_size=self.config.batch_size, shuffle=True)
         eval_dataloader = DataLoader(eval_dataset, batch_size=self.config.batch_size, shuffle=False)
         return train_dataloader, eval_dataloader

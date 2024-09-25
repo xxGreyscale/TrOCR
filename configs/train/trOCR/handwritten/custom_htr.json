@@ -10,5 +10,6 @@
     "decoder": "KBLab/bert-base-swedish-cased-new",
     "log_dir": "/home/x_salom/",
     "test_dataset": [],
+    "wandb_project": "TrOCR - Handwritten Results v2",
     "model_version": 1.0
 }

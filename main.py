@@ -108,7 +108,7 @@ def transfer_learning(config: Config, args):
         data = CustomLoader(args.dataset_paths)
         data.generate_dataframe()
 
-        test_data = CustomLoader(config.test_dataset) if len(config.test_dataset) > 0 else None
+        test_data = CustomLoader(config.test_dataset) if config.test_dataset is not None else None
         test_data.generate_dataframe() if test_data is not None else None
 
         # create the model
@@ -142,7 +142,7 @@ def train(config: Config, args):
         data = CustomLoader(args.dataset_paths)
         data.generate_dataframe()
 
-        test_data = CustomLoader(config.test_dataset) if len(config.test_dataset) > 0 else None
+        test_data = CustomLoader(config.test_dataset) if config.test_dataset is not None else None
         test_data.generate_dataframe() if test_data is not None else None
 
         # create the model

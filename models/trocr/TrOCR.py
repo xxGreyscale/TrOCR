@@ -7,7 +7,8 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from PIL import Image
 from tqdm import tqdm
-from transformers import BertTokenizer, DeiTImageProcessor, ViTImageProcessor, RobertaTokenizer, TrOCRProcessor
+from transformers import BertTokenizer, DeiTImageProcessor, ViTImageProcessor, RobertaTokenizer, TrOCRProcessor, \
+    AutoTokenizer
 from evaluate import load
 from transformers import VisionEncoderDecoderModel
 import logging
@@ -89,7 +90,7 @@ class TrOCR:
         tokenizer_type: type of tokenizer to use, e.g. BERT or RoBERTa
         """
         if self.config.tokenizer_type == "BERT":
-            tokenizer = BertTokenizer.from_pretrained(self.config.decoder)
+            tokenizer = AutoTokenizer.from_pretrained(self.config.decoder)
         else:
             tokenizer = RobertaTokenizer.from_pretrained(self.config.decoder)
 

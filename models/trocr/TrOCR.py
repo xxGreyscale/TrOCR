@@ -76,7 +76,10 @@ class TrOCR:
         if test_df is not None:
             test_df.reset_index(drop=True, inplace=True)
         else:
-            test_df = None
+            # split the data into train and test
+            print("Splitting the data into train and test...")
+            train_df, test_df = train_test_split(train_df, test_size=0.2)
+            test_df.reset_index(drop=True, inplace=True)
         # create the datasets
         train_dataset = CustomDataset(train_df, self.processor, self.config.max_target_length)
         eval_dataset = CustomDataset(test_df, self.processor, self.config.max_target_length) if test_df is not None else None
@@ -165,12 +168,8 @@ class TrOCR:
         :param eval_dataset:
         :return: None
         """
-        if eval_dataset is None or len(eval_dataset) == 0:
-            print("Splitting the dataset into train and eval...")
-            train_dataset, eval_dataset = train_test_split(train_dataset, test_size=0.2)
-        else:
-            train_dataset = train_dataset
-            eval_dataset = eval_dataset
+        train_dataset = train_dataset
+        eval_dataset = eval_dataset
         print(f"Train dataset: {len(train_dataset)}")
         print(f"Eval dataset: {len(eval_dataset)}")
         train_dataloader = DataLoader(train_dataset, batch_size=self.config.batch_size, shuffle=True)

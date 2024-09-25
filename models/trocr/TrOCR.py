@@ -162,7 +162,7 @@ class TrOCR:
         :param eval_dataset:
         :return: None
         """
-        if len(self.config.test_dataset) < 1 :
+        if self.config.test_dataset is None or len(self.config.test_dataset) == 0:
             train_dataset, eval_dataset = train_test_split(train_dataset, test_size=0.2)
         else:
             train_dataset = train_dataset

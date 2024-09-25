@@ -72,17 +72,20 @@ class TrOCR:
         """
         train_df, test_df = args
         # Reset the indices to start from zero
-        train_df.reset_index(drop=True, inplace=True)
         if test_df is not None:
+            train_df.reset_index(drop=True, inplace=True)
             test_df.reset_index(drop=True, inplace=True)
         else:
             # Split the train_df into train and eval datasets if test_df is not provided
             train_df, test_df = train_test_split(train_df, test_size=0.15)
+            train_df.reset_index(drop=True, inplace=True)
             test_df.reset_index(drop=True, inplace=True)
 
         # Create the datasets
         train_dataset = CustomDataset(train_df, self.processor, self.config.max_target_length)
         eval_dataset = CustomDataset(test_df, self.processor, self.config.max_target_length)
+        print(f"Train dataset: {len(train_dataset)}")
+        print(f"Eval dataset: {len(eval_dataset)}")
         return train_dataset, eval_dataset
 
     def build_model(self):

@@ -73,10 +73,13 @@ class TrOCR:
         train_df, test_df = args
         # reset the indices to start from zero
         train_df.reset_index(drop=True, inplace=True)
-        test_df.reset_index(drop=True, inplace=True)
+        if test_df is not None:
+            test_df.reset_index(drop=True, inplace=True)
+        else:
+            test_df = None
         # create the datasets
         train_dataset = CustomDataset(train_df, self.processor, self.config.max_target_length)
-        eval_dataset = CustomDataset(test_df, self.processor, self.config.max_target_length)
+        eval_dataset = CustomDataset(test_df, self.processor, self.config.max_target_length) if test_df is not None else None
         return train_dataset, eval_dataset
 
     def build_model(self):
@@ -162,7 +165,8 @@ class TrOCR:
         :param eval_dataset:
         :return: None
         """
-        if self.config.test_dataset is None or len(self.config.test_dataset) == 0:
+        if eval_dataset is None:
+            print("Splitting the dataset into train and eval...")
             train_dataset, eval_dataset = train_test_split(train_dataset, test_size=0.2)
         else:
             train_dataset = train_dataset

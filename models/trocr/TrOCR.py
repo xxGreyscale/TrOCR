@@ -72,17 +72,14 @@ class TrOCR:
         """
         train_df, test_df = args
         # reset the indices to start from zero
-        train_df.reset_index(drop=True, inplace=True)
         if test_df is not None and len(test_df) > 0:
             test_df.reset_index(drop=True, inplace=True)
+            eval_dataset = CustomDataset(test_df, self.processor, self.config.max_target_length)
         else:
-            # split the data into train and test
-            print("Splitting the data into train and test...")
-            train_df, test_df = train_test_split(train_df, test_size=0.2)
-            test_df.reset_index(drop=True, inplace=True)
+            eval_dataset = None
+        train_df.reset_index(drop=True, inplace=True)
         # create the datasets
         train_dataset = CustomDataset(train_df, self.processor, self.config.max_target_length)
-        eval_dataset = CustomDataset(test_df, self.processor, self.config.max_target_length) if test_df is not None else None
         return train_dataset, eval_dataset
 
     def build_model(self):
@@ -168,10 +165,9 @@ class TrOCR:
         :param eval_dataset:
         :return: None
         """
-        train_dataset = train_dataset
-        eval_dataset = eval_dataset
-        print(f"Train dataset: {len(train_dataset)}")
-        print(f"Eval dataset: {len(eval_dataset)}")
+        if eval_dataset is None or len(eval_dataset) == 0:
+            logger.info("No test dataset provided. Using the train dataset for evaluation")
+            train_dataset, eval_dataset = train_test_split(train_dataset, test_size=0.15)
         train_dataloader = DataLoader(train_dataset, batch_size=self.config.batch_size, shuffle=True)
         eval_dataloader = DataLoader(eval_dataset, batch_size=self.config.batch_size, shuffle=False)
         return train_dataloader, eval_dataloader

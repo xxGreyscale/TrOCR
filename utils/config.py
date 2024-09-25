@@ -95,7 +95,7 @@ class Config:
                 model_version=data["model_version"],
                 processor=data["processor"],
                 vision_encoder_decoder_model=data["vision_encoder_decoder_model"],
-                test_dataset= data["test_dataset"] if data["test_dataset"] is not None else None,
+                test_dataset= data["test_dataset"] if data["test_dataset"] > 0 else None,
                 eval_frequency=data["eval_frequency"],
                 wandb_project=data["wandb_project"]
             )
@@ -110,7 +110,7 @@ class Config:
                 tokenizer_type=data["tokenizer_type"],
                 image_processor_type=data["image_processor_type"],
                 encoder=data["encoder"],
-                test_dataset= data["test_dataset"] if data["test_dataset"] is not None else None,
+                test_dataset= data["test_dataset"] if data["test_dataset"] > 0 else None,
                 eval_frequency=data["eval_frequency"],
                 wandb_project=data["wandb_project"]
             )

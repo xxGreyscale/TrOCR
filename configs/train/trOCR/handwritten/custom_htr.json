@@ -9,5 +9,6 @@
     "tokenizer_type": "BERT",
     "decoder": "KBLab/bert-base-swedish-cased-new",
     "log_dir": "/home/x_salom/",
+    "test_dataset": [],
     "model_version": 1.0
 }

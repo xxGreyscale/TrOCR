@@ -77,8 +77,6 @@ class TrOCR:
         # create the datasets
         train_dataset = CustomDataset(train_df, self.processor, self.config.max_target_length)
         eval_dataset = CustomDataset(test_df, self.processor, self.config.max_target_length)
-        print(f"Train dataset: {len(train_dataset)}")
-        print(f"Eval dataset: {len(eval_dataset)}")
         return train_dataset, eval_dataset
 
     def build_model(self):
@@ -164,11 +162,13 @@ class TrOCR:
         :param eval_dataset:
         :return: None
         """
-        if self.config.test_dataset is None:
+        if len(self.config.test_dataset) < 1 :
             train_dataset, eval_dataset = train_test_split(train_dataset, test_size=0.2)
         else:
             train_dataset = train_dataset
             eval_dataset = eval_dataset
+        print(f"Train dataset: {len(train_dataset)}")
+        print(f"Eval dataset: {len(eval_dataset)}")
         train_dataloader = DataLoader(train_dataset, batch_size=self.config.batch_size, shuffle=True)
         eval_dataloader = DataLoader(eval_dataset, batch_size=self.config.batch_size, shuffle=False)
         return train_dataloader, eval_dataloader

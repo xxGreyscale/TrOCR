@@ -73,7 +73,7 @@ class TrOCR:
         train_df, test_df = args
         # reset the indices to start from zero
         train_df.reset_index(drop=True, inplace=True)
-        if test_df is not None:
+        if test_df is not None and len(test_df) > 0:
             test_df.reset_index(drop=True, inplace=True)
         else:
             # split the data into train and test

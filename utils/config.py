@@ -40,9 +40,9 @@ class Config:
         if processor is not None and vision_encoder_decoder_model is not None:
             self.processor = processor
             self.vision_encoder_decoder_model = vision_encoder_decoder_model
-            self.freeze_upper_layers = freeze_upper_layers
-            self.freeze_lower_layers = freeze_lower_layers
-            self.fine_tune_all_layers = fine_tune_all_layers
+        self.freeze_upper_layers = freeze_upper_layers
+        self.freeze_lower_layers = freeze_lower_layers
+        self.fine_tune_all_layers = fine_tune_all_layers
         self.model_version = model_version
         self.eval_frequency = eval_frequency
         self.test_dataset = test_dataset
@@ -149,7 +149,10 @@ class Config:
                 encoder=data["encoder"],
                 test_dataset=data["test_dataset"] if len(data["test_dataset"]) > 0 else None,
                 eval_frequency=data["eval_frequency"],
-                wandb_project=data["wandb_project"]
+                wandb_project=data["wandb_project"],
+                freeze_upper_layers=data["freeze_upper_layers"] if "freeze_upper_layers" in data else False,
+                freeze_lower_layers=data["freeze_lower_layers"] if "freeze_lower_layers" in data else False,
+                fine_tune_all_layers=data["fine_tune_all_layers"] if "fine_tune_all_layers" in data else False,
             )
 
     @staticmethod

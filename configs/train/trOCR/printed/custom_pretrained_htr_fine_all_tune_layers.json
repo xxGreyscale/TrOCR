@@ -4,12 +4,11 @@
     "eval_frequency": 4,
     "batch_size": 128,
     "max_target_length": 108,
-    "image_processor_type": "ViT",
-    "encoder": "google/vit-base-patch16-224-in21k",
-    "tokenizer_type": "BERT",
-    "decoder": "KBLab/bert-base-swedish-cased-new",
+    "vision_encoder_decoder_model": "custom_models/trocr-handwritten/small/1.1/vision_model",
+    "processor": "custom_models/trocr-handwritten/small/1.1/processor",
     "log_dir": "/home/x_salom/",
     "test_dataset": ["datasets/printed/synthetic/test/image_labels_dataset.csv"],
     "wandb_project": "TrOCR - Printed Results v2",
+    "fine_tune_all_layers": true,
     "model_version": 1.1
 }

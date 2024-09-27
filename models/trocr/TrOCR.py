@@ -139,6 +139,25 @@ class TrOCR:
         model.config.no_repeat_ngram_size = 3
         model.config.length_penalty = 2.0
         model.config.num_beams = 4
+        if self.config.fine_tune_all_layers:
+            for param in model.parameters():
+                param.requires_grad = True
+        if self.config.freeze_lower_layers:
+            # Freeze lower layers (e.g., vision encoder)
+            for param in model.encoder.parameters():
+                param.requires_grad = False
+
+            # Fine-tune upper layers (e.g., text decoder)
+            for param in model.decoder.parameters():
+                param.requires_grad = True
+        if self.config.freeze_upper_layers:
+            # Freeze upper layers (e.g., text decoder)
+            for param in model.decoder.parameters():
+                param.requires_grad = False
+
+            # Fine-tune lower layers (e.g., vision encoder)
+            for param in model.encoder.parameters():
+                param.requires_grad = True
         return model, processor
 
     def build_model_with_pretrained(self, processor_path, vision_encoder_decoder_model_path, use_fast=False):

@@ -7,17 +7,17 @@ def correct_paths(input_file, output_file, prefix):
     df = pd.read_csv(input_file)
 
     # Replace incorrect path separators
-    df['image_path'] = df['image_path'].str.replace(r'\\+', '/', regex=True)
-    df['image_path'] = df['image_path'].str.replace(r'\\', '/', regex=True)   # Handles \
+    df['image'] = df['image'].str.replace(r'\\+', '/', regex=True)
+    df['image'] = df['image'].str.replace(r'\\', '/', regex=True)   # Handles \
 
     # remove everything except the last part of the path, and add images/ to the beginning
     # if prefix:
-    #     df['image_path'] = prefix + df['image_path'].str.split('/').str[-1]
-    # df['image_path'] = df['image_path'].str.split('/').str[-1]
-    # df['image_path'] = 'images/' + df['image_path']
+    #     df['image'] = prefix + df['image'].str.split('/').str[-1]
+    # df['image'] = df['image'].str.split('/').str[-1]
+    # df['image'] = 'images/' + df['image']
 
     #  For one time use, tak the last 2 parts of the path
-    df['image_path'] = prefix + df['image_path'].str.split('/').str[-2] + '/' + df['image_path'].str.split('/').str[-1]
+    df['image'] = prefix + df['image'].str.split('/').str[-2] + '/' + df['image'].str.split('/').str[-1]
 
     # Save the corrected DataFrame back to the CSV
     df.to_csv(output_file, index=False)

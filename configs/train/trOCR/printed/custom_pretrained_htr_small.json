@@ -8,6 +8,6 @@
     "processor": "custom_models/trocr-handwritten/small/1.1/processor",
     "log_dir": "/home/x_salom/",
     "test_dataset": ["datasets/printed/synthetic/test/image_labels_dataset.csv"],
-    "wandb_project": "TrOCR - Printed Results v2",
-    "model_version": 1.1
+    "wandb_project": "TrOCR - Printed Results v3",
+    "model_version": 1.3
 }

@@ -3,7 +3,7 @@
     "epochs": 8,
     "eval_frequency": 4,
     "batch_size": 128,
-    "max_target_length": 64,
+    "max_target_length": 108,
     "vision_encoder_decoder_model": "microsoft/trocr-base-handwritten",
     "processor": "Riksarkivet/trocr-base-handwritten-hist-swe-2",
     "log_dir": "/home/x_salom/",

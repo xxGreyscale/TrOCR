@@ -4,7 +4,7 @@
 #SBATCH -C "fat"
 
 #SBATCH -t 02-12:00:00
-#SBATCH --output=/home/x_salom/logs/printed_htr_pretrained_small%j.text
+#SBATCH --output=/home/x_salom/logs/advanced_printed_fft%j.text
 #SBATCH --mail-type=BEGIN,END,FAIL
 #SBATCH --mail-user=salum.nassor.2008@student.uu.se
 

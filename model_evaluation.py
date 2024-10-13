@@ -1,3 +1,4 @@
+import argparse
 from transformers import TrOCRProcessor, VisionEncoderDecoderModel
 import torch
 from jiwer import cer

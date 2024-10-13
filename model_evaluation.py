@@ -126,8 +126,8 @@ def run(args):
     # dataset_paths = ["../datasets/printed/Histrorical_News_Paper/test.csv"]
     dataset_paths = args.dataset
     dataset_cl = CustomLoader(dataset_paths)
-    dataset_cl.generate_dataframe(['image', 'text'])
-    # dataset_cl.generate_dataframe()
+    # dataset_cl.generate_dataframe(['image', 'text'])
+    dataset_cl.generate_dataframe()
     # put ../ in every file name in the dataframe
     df = dataset_cl.get_dataframe()
     df["file_name"] = df["file_name"].apply(lambda x: x.replace("Histrorical_News_Paper/test.csv", "").strip())

@@ -4,7 +4,7 @@
 #SBATCH -C "fat"
 
 #SBATCH -t 00-04:00:00
-#SBATCH --output=/home/x_salom/logs/evaluate_all_models_on_synthetic%j.text
+#SBATCH --output=/home/x_salom/logs/evaluate_FUL_models_on_synthetic%j.text
 #SBATCH --mail-type=BEGIN,END,FAIL
 #SBATCH --mail-user=salum.nassor.2008@student.uu.se
 

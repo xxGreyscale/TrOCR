@@ -12,6 +12,4 @@ module load Anaconda/2023.09-0-hpc1-bdist
 module load buildenv-gcccuda/11.8.0-gcc11.3.0
 cd ~/TrOCR
 conda activate ml-ocr
-python model_evaluation.py --name FFT --batch_size 128 --dataset /home/x_salom/TrOCR/datasets/printed/synthetic/test/image_labels_dataset.csv --model custom_models/trocr-printed/pretrained/ms-base-fft/2.0/vision_model --processor custom_models/trocr-printed/pretrained/ms-base-fft/2.0/processor
-python model_evaluation.py --name FUL --batch_size 128 --dataset /home/x_salom/TrOCR/datasets/printed/synthetic/test/image_labels_dataset.csv --model custom_models/trocr-printed/pretrained/ms-base-ful/2.0/vision_model --processor custom_models/trocr-printed/pretrained/ms-base-ful/2.0/processor
 python model_evaluation.py --name FLL --batch_size 128 --dataset /home/x_salom/TrOCR/datasets/printed/synthetic/test/image_labels_dataset.csv --model custom_models/trocr-printed/pretrained/ms-base-fll/2.0/vision_model --processor custom_models/trocr-printed/pretrained/ms-base-fll/2.0/processor

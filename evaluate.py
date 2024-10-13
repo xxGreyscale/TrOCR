@@ -6,7 +6,6 @@ from tqdm import tqdm
 from PIL import Image
 from collections import defaultdict
 import matplotlib.pyplot as plt
-import cv2
 import numpy as np
 import pandas as pd
 import sys
@@ -56,7 +55,7 @@ def prepare_dataset(args):
     return eval_dataset
 
 
-def set_data_loader(eval_dataset):
+def set_data_loader(eval_dataset, batch_size=16):
     """
     Set the data loader for training and evaluation
     :param train_dataset:
@@ -65,47 +64,8 @@ def set_data_loader(eval_dataset):
     """
     if len(eval_dataset) == 0:
         raise ValueError("Eval dataset size must be greater than 0 after splitting")
-    eval_dataloader = DataLoader(eval_dataset, batch_size=16, shuffle=False)
+    eval_dataloader = DataLoader(eval_dataset, batch_size=batch_size, shuffle=False)
     return eval_dataloader
-
-
-def preprocess_image(_image):
-    """Preprocess the image using various image processing techniques."""
-    # Convert the image to grayscale
-    gray_image = cv2.cvtColor(np.array(_image), cv2.COLOR_RGB2GRAY)
-
-    # Apply binary threshold
-    _, binary_image = cv2.threshold(gray_image, 128, 255, cv2.THRESH_BINARY_INV)
-
-    # Define the kernel for morphological operations
-    kernel = np.ones((2, 2), np.uint8)
-
-    # Apply erosion to make lines thinner
-    eroded_image = cv2.erode(binary_image, kernel, iterations=1)
-
-    # Apply dilation to enhance the image
-    dilated_image = cv2.dilate(eroded_image, kernel, iterations=1)
-
-    # Remove noise using median filtering
-    denoised_image = cv2.medianBlur(dilated_image, 3)
-
-    # Deskew the image (assuming the text is mostly horizontal)
-    coords = np.column_stack(np.where(denoised_image > 0))
-    angle = cv2.minAreaRect(coords)[-1]
-    if angle < -45:
-        angle = -(90 + angle)
-    else:
-        angle = -angle
-    (h, w) = denoised_image.shape[:2]
-    center = (w // 2, h // 2)
-    m = cv2.getRotationMatrix2D(center, angle, 1.0)
-    deskewed_image = cv2.warpAffine(denoised_image, m, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
-
-    # Convert back to 3 dimensions if necessary
-    if len(deskewed_image.shape) == 2:
-        deskewed_image = cv2.cvtColor(deskewed_image, cv2.COLOR_GRAY2RGB)
-
-    return Image.fromarray(deskewed_image)
 
 
 def evaluate_wer_and_cer(_model, _processor, data_loader):
@@ -171,7 +131,7 @@ def run(args):
     df["file_name"] = df["file_name"].apply(
         lambda x: os.path.join(current_dir, x).replace("Histrorical_News_Paper/test.csv", "").strip())
 
-    eval_dataloader = (set_data_loader(prepare_dataset(dataset_cl.get_dataframe() if dataset_cl is not None else None)))
+    eval_dataloader = (set_data_loader(prepare_dataset(dataset_cl.get_dataframe() if dataset_cl is not None else None), args.batch_size))
 
     fft_model_cer, fft_model_wer = evaluate_wer_and_cer(model, processor, eval_dataloader)
     print(f"OCR full fine tuned on synthetic dataset average CER: {fft_model_cer}")
@@ -185,5 +145,6 @@ if __name__ == "__main__":
     parser.add_argument('--dataset', type=str, nargs='+', help='Path to the dataset')
     parser.add_argument('--model', type=str, help='Path to the model')
     parser.add_argument('--processor', type=str, help='Path to the processor')
+    parser.add_argument('--batch_size', type=int, default=16, help='Batch size')
     args = parser.parse_args()
     run(args)

@@ -137,8 +137,8 @@ def run(args):
             df if dataset_cl is not None else None, processor), args.batch_size))
 
     fft_model_cer, fft_model_wer = evaluate_wer_and_cer(model, processor, eval_dataloader)
-    print(f"OCR full fine tuned on synthetic dataset average CER: {fft_model_cer}")
-    print(f"OCR full fine tuned on synthetic dataset average WER: {fft_model_wer}")
+    print(f"OCR {args.name} on dataset average CER: {fft_model_cer}")
+    print(f"OCR {args.name} on dataset average WER: {fft_model_wer}")
 
 
 #  main
@@ -148,6 +148,7 @@ if __name__ == "__main__":
     parser.add_argument('--dataset', type=str, nargs='+', help='Path to the dataset')
     parser.add_argument('--model', type=str, help='Path to the model')
     parser.add_argument('--processor', type=str, help='Path to the processor')
+    parser.add_argument('--name', type=str, help='Model name to evaluate')
     parser.add_argument('--batch_size', type=int, default=16, help='Batch size')
     args = parser.parse_args()
     run(args)

@@ -129,8 +129,7 @@ def run(args):
     dataset_cl.generate_dataframe(['image', 'text'])
     # put ../ in every file name in the dataframe
     df = dataset_cl.get_dataframe()
-    df["file_name"] = df["file_name"].apply(
-        lambda x: os.path.join(current_dir, x).replace("Histrorical_News_Paper/test.csv", "").strip())
+    # df["file_name"] = df["file_name"].apply(lambda x: x.strip())
 
     eval_dataloader = (set_data_loader(prepare_dataset(dataset_cl.get_dataframe() if dataset_cl is not None else None), args.batch_size))
 

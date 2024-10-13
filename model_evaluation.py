@@ -31,7 +31,7 @@ class CustomDataset(Dataset):
         text = self.df['text'][idx]
         img = Image.open(img_path).convert('RGB')
         pixel_values = self.processor(img, return_tensors="pt").pixel_values
-        labels = self.processor.tokenizer(text, padding="max_length", max_length=self.max_target_length).input_ids
+        labels = self.processor.tokenizer(text, padding="max_length", truncation=True, max_length=self.max_target_length).input_ids
         # important: make sure that PAD tokens are ignored by the loss function
         labels = [label if label != self.processor.tokenizer.pad_token_id else -100 for label in labels]
 

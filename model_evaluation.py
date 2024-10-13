@@ -39,11 +39,11 @@ class CustomDataset(Dataset):
         return _encoding
 
 
-def prepare_dataset(args):
+def prepare_dataset(args, processor):
     """
     Prepare the dataset for training
-    :param train_df: DataFrame for training
-    :param test_df: DataFrame for evaluation (optional)
+    :param args:
+    :param processor: Processor for the model
     :return: train_dataset and eval_dataset
     """
     test_df = args
@@ -59,7 +59,7 @@ def prepare_dataset(args):
 def set_data_loader(eval_dataset, batch_size=16):
     """
     Set the data loader for training and evaluation
-    :param train_dataset:
+    :param batch_size:
     :param eval_dataset:
     :return: train_dataloader, eval_dataloader
     """
@@ -128,10 +128,12 @@ def run(args):
     dataset_cl = CustomLoader(dataset_paths)
     dataset_cl.generate_dataframe(['image', 'text'])
     # put ../ in every file name in the dataframe
-    df = dataset_cl.get_dataframe()
+    # df = dataset_cl.get_dataframe()
     # df["file_name"] = df["file_name"].apply(lambda x: x.strip())
 
-    eval_dataloader = (set_data_loader(prepare_dataset(dataset_cl.get_dataframe() if dataset_cl is not None else None), args.batch_size))
+    eval_dataloader = (set_data_loader(
+        prepare_dataset(
+            dataset_cl.get_dataframe() if dataset_cl is not None else None, processor), args.batch_size))
 
     fft_model_cer, fft_model_wer = evaluate_wer_and_cer(model, processor, eval_dataloader)
     print(f"OCR full fine tuned on synthetic dataset average CER: {fft_model_cer}")

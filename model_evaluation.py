@@ -128,12 +128,12 @@ def run(args):
     dataset_cl = CustomLoader(dataset_paths)
     dataset_cl.generate_dataframe(['image', 'text'])
     # put ../ in every file name in the dataframe
-    # df = dataset_cl.get_dataframe()
-    # df["file_name"] = df["file_name"].apply(lambda x: x.strip())
+    df = dataset_cl.get_dataframe()
+    df["file_name"] = df["file_name"].apply(lambda x: x.replace("Histrorical_News_Paper/test.csv", "").strip())
 
     eval_dataloader = (set_data_loader(
         prepare_dataset(
-            dataset_cl.get_dataframe() if dataset_cl is not None else None, processor), args.batch_size))
+            df if dataset_cl is not None else None, processor), args.batch_size))
 
     fft_model_cer, fft_model_wer = evaluate_wer_and_cer(model, processor, eval_dataloader)
     print(f"OCR full fine tuned on synthetic dataset average CER: {fft_model_cer}")

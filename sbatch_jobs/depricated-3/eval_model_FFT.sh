@@ -4,7 +4,7 @@
 #SBATCH -C "fat"
 
 #SBATCH -t 00-04:00:00
-#SBATCH --output=/home/x_salom/logs/evaluate_ms_base_FTT_models_on_synthetic%j.text
+#SBATCH --output=/home/x_salom/logs/evaluate_custom_FFT_on_Kubhist_n_synthetic%j.text
 #SBATCH --mail-type=BEGIN,END,FAIL
 #SBATCH --mail-user=salum.nassor.2008@student.uu.se
 

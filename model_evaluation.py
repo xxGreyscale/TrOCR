@@ -126,8 +126,10 @@ def run(args):
     # dataset_paths = ["../datasets/printed/Histrorical_News_Paper/test.csv"]
     dataset_paths = args.dataset
     dataset_cl = CustomLoader(dataset_paths)
-    # dataset_cl.generate_dataframe(['image', 'text'])
-    dataset_cl.generate_dataframe()
+    if args.dataset_name == "kubhist":
+        dataset_cl.generate_dataframe(['image', 'text'])
+    else:
+        dataset_cl.generate_dataframe()
     # put ../ in every file name in the dataframe
     df = dataset_cl.get_dataframe()
     df["file_name"] = df["file_name"].apply(lambda x: x.replace("Histrorical_News_Paper/test.csv", "").strip())
@@ -137,8 +139,8 @@ def run(args):
             df if dataset_cl is not None else None, processor), args.batch_size))
 
     fft_model_cer, fft_model_wer = evaluate_wer_and_cer(model, processor, eval_dataloader)
-    print(f"OCR {args.name} on dataset average CER: {fft_model_cer}")
-    print(f"OCR {args.name} on dataset average WER: {fft_model_wer}")
+    print(f"OCR {args.name} on {args.dataset_name} dataset average CER: {fft_model_cer}")
+    print(f"OCR {args.name} on {args.dataset_name} dataset average WER: {fft_model_wer}")
 
 
 #  main
@@ -149,6 +151,7 @@ if __name__ == "__main__":
     parser.add_argument('--model', type=str, help='Path to the model')
     parser.add_argument('--processor', type=str, help='Path to the processor')
     parser.add_argument('--name', type=str, help='Model name to evaluate')
+    parser.add_argument('--dataset_name', type=str, help='name of the dataset')
     parser.add_argument('--batch_size', type=int, default=16, help='Batch size')
     args = parser.parse_args()
     run(args)
